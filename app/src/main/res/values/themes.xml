@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Radio" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <!-- Colores del tema -->
+        <item name="colorPrimary">@color/primary_dark</item>
+        <item name="colorPrimaryDark">@color/primary_variant_dark</item>
+        <item name="colorAccent">@color/accent_dark</item>
+        
+        <!-- Colores de texto -->
+        <item name="android:textColorPrimary">@color/text_primary_dark</item>
+        <item name="android:textColorSecondary">@color/text_secondary_dark</item>
+        <item name="android:textColorHint">@color/text_hint_dark</item>
+        
+        <!-- Barra de estado -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        
+        <!-- Navegación -->
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>

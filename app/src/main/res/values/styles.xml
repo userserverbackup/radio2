@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Estilo para botones principales -->
+    <style name="ButtonPrimary" parent="Widget.AppCompat.Button">
+        <item name="android:background">@drawable/button_primary_background</item>
+        <item name="android:textColor">@color/text_primary_dark</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:padding">16dp</item>
+        <item name="android:layout_margin">8dp</item>
+        <item name="android:minWidth">200dp</item>
+        <item name="android:minHeight">56dp</item>
+    </style>
+    
+    <!-- Estilo para botones secundarios con fuente Alegria -->
+    <style name="ButtonSecondary" parent="Widget.AppCompat.Button">
+        <item name="android:background">@drawable/button_secondary_no_background</item>
+        <item name="android:textColor">@color/text_primary_dark</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:padding">12dp</item>
+        <item name="android:layout_margin">4dp</item>
+        <item name="android:minWidth">160dp</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:fontFamily">@font/alegria</item>
+    </style>
+    
+    <!-- Estilo para texto de título con fuente Alegria -->
+    <style name="TextTitle" parent="TextAppearance.AppCompat.Large">
+        <item name="android:textColor">@color/text_primary_dark</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">@font/alegria</item>
+        <item name="android:textSize">22sp</item>
+    </style>
+    
+    <!-- Estilo para texto de estado -->
+    <style name="TextStatus" parent="TextAppearance.AppCompat.Body1">
+        <item name="android:textColor">@color/text_secondary_dark</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:gravity">center</item>
+    </style>
+    
+    <!-- Estilo para tarjetas -->
+    <style name="CardStyle" parent="CardView">
+        <item name="cardBackgroundColor">@color/surface_dark</item>
+        <item name="cardCornerRadius">12dp</item>
+        <item name="cardElevation">4dp</item>
+        <item name="android:layout_margin">8dp</item>
+    </style>
+
+    <!-- Estilo para botón principal redondeado con fuente Alegria -->
+    <style name="ButtonPrimaryRounded" parent="Widget.AppCompat.Button">
+        <item name="android:background">@drawable/button_primary_rounded_background</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:padding">16dp</item>
+        <item name="android:layout_margin">8dp</item>
+        <item name="android:minWidth">200dp</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="android:fontFamily">@font/alegria</item>
+    </style>
+</resources> 

@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background_dark"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:gravity="center_horizontal">
+
+        <!-- Título -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Configuración de Backup"
+            style="@style/TextTitle"
+            android:layout_marginBottom="32dp" />
+
+        <!-- Tarjeta de configuración -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            style="@style/CardStyle"
+            android:layout_marginBottom="24dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Intervalo de Backup"
+                    android:textColor="@color/text_primary_dark"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="16dp" />
+
+                <RadioGroup
+                    android:id="@+id/radioGroupIntervalo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <RadioButton
+                        android:id="@+id/radio1h"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Cada 1 hora"
+                        android:textColor="@color/text_primary_dark"
+                        android:padding="12dp"
+                        android:layout_marginBottom="8dp" />
+
+                    <RadioButton
+                        android:id="@+id/radio6h"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Cada 6 horas"
+                        android:textColor="@color/text_primary_dark"
+                        android:padding="12dp"
+                        android:layout_marginBottom="8dp" />
+
+                    <RadioButton
+                        android:id="@+id/radio24h"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Cada 24 horas"
+                        android:textColor="@color/text_primary_dark"
+                        android:padding="12dp"
+                        android:layout_marginBottom="8dp" />
+                </RadioGroup>
+
+                <Button
+                    android:id="@+id/btnGuardarBackup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Guardar Configuración"
+                    style="@style/ButtonPrimary"
+                    android:layout_marginTop="16dp" />
+                    
+                <Button
+                    android:id="@+id/btnCerrar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Cerrar"
+                    style="@style/ButtonSecondary"
+                    android:layout_marginTop="8dp" />
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Tarjeta de historial -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            style="@style/CardStyle">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Historial de Conexiones"
+                    android:textColor="@color/text_primary_dark"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="16dp" />
+
+                <TextView
+                    android:id="@+id/txtHistorialConfig"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Última conexión: -\nAnterior: -"
+                    android:textColor="@color/text_secondary_dark"
+                    android:textSize="14sp"
+                    android:gravity="center"
+                    android:background="@drawable/historial_background"
+                    android:padding="16dp"
+                    android:layout_marginBottom="16dp" />
+
+                <TextView
+                    android:id="@+id/txtRegistroArchivos"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Archivos subidos: 0"
+                    android:textColor="@color/text_secondary_dark"
+                    android:textSize="14sp"
+                    android:gravity="center"
+                    android:background="@drawable/historial_background"
+                    android:padding="16dp"
+                    android:layout_marginBottom="16dp" />
+
+                <TextView
+                    android:id="@+id/txtIpLocal"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="IP local: -"
+                    android:textColor="@color/text_secondary_dark"
+                    android:textSize="16sp"
+                    android:gravity="center"
+                    android:background="@drawable/historial_background"
+                    android:padding="12dp"
+                    android:layout_marginBottom="8dp" />
+
+                <Button
+                    android:id="@+id/btnEnviarIp"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Enviar IP al servidor"
+                    style="@style/ButtonPrimary"
+                    android:layout_marginBottom="16dp" />
+
+                <Button
+                    android:id="@+id/btnRecuperarHistorial"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Recuperar historial desde el bot"
+                    style="@style/ButtonPrimary"
+                    android:layout_marginBottom="16dp" />
+
+                <Button
+                    android:id="@+id/btnEnviarHistorial"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Enviar historial como texto"
+                    style="@style/ButtonPrimary"
+                    android:layout_marginBottom="8dp" />
+
+                <Button
+                    android:id="@+id/btnEnviarHistorialArchivo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Enviar historial como archivo"
+                    style="@style/ButtonPrimary"
+                    android:layout_marginBottom="16dp" />
+
+                <Button
+                    android:id="@+id/btnDetenerBackup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Detener backup"
+                    style="@style/ButtonSecondary"
+                    android:layout_marginBottom="16dp" />
+
+                <Button
+                    android:id="@+id/btnLimpiarRegistro"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Limpiar Registro de Archivos"
+                    style="@style/ButtonSecondary"
+                    android:layout_marginBottom="8dp" />
+
+                <!-- Configuración del bot de Telegram -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Configurar bot de Telegram"
+                    android:textColor="@color/text_primary_dark"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="8dp" />
+
+                <EditText
+                    android:id="@+id/editBotToken"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/bot_token_label"
+                    android:inputType="text"
+                    android:layout_marginBottom="8dp" />
+
+                <EditText
+                    android:id="@+id/editBotChatId"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/bot_chat_id_label"
+                    android:inputType="text"
+                    android:layout_marginBottom="8dp" />
+
+                <Button
+                    android:id="@+id/btnGuardarConfigBot"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/bot_guardar_config"
+                    style="@style/ButtonPrimary"
+                    android:layout_marginBottom="8dp" />
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+    </LinearLayout>
+</ScrollView> 

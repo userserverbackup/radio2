@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:padding="24dp">
+
+        <!-- Logo -->
+        <ImageView
+            android:layout_width="160dp"
+            android:layout_height="160dp"
+            android:src="@drawable/ic_logo_backup"
+            android:layout_marginBottom="16dp"
+            android:contentDescription="Logo de la app" />
+
+        <!-- Título -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Configuraciones de Backup"
+            style="@style/TextTitle"
+            android:layout_marginBottom="32dp" />
+
+        <!-- Botón principal de control -->
+        <Button
+            android:id="@+id/btnControl"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Iniciar Backup"
+            style="@style/ButtonSecondary"
+            android:layout_marginBottom="24dp" />
+
+        <!-- Estado del servicio -->
+        <TextView
+            android:id="@+id/txtEstado"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Servicio detenido"
+            style="@style/TextStatus"
+            android:layout_marginBottom="32dp" />
+
+        <!-- Botón de configuración del bot -->
+        <Button
+            android:id="@+id/btnConfigBot"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Configurar Bot de Telegram"
+            style="@style/ButtonSecondary"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Botón de configuración de backup -->
+        <Button
+            android:id="@+id/btnConfigBackup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Configurar Backup"
+            style="@style/ButtonSecondary"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Botón Forzar Backup -->
+        <Button
+            android:id="@+id/btnForzarBackup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Forzar Backup"
+            style="@style/ButtonSecondary" />
+
+    </LinearLayout>
+</ScrollView> 
