@@ -30,8 +30,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnControl: Button
     private lateinit var txtEstado: TextView
     private var backupActivo = false
-    private lateinit var recyclerHistorial: RecyclerView
-    private lateinit var backupHistoryAdapter: BackupHistoryAdapter
+    // ELIMINADO: recyclerHistorial, backupHistoryAdapter, obtenerHistorialBackups y su uso
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,10 +63,7 @@ class MainActivity : AppCompatActivity() {
     private fun inicializarVistas() {
         btnControl = findViewById(R.id.btnControl)
         txtEstado = findViewById(R.id.txtEstado)
-        recyclerHistorial = findViewById(R.id.recyclerHistorial)
-        recyclerHistorial.layoutManager = LinearLayoutManager(this)
-        backupHistoryAdapter = BackupHistoryAdapter(obtenerHistorialBackups())
-        recyclerHistorial.adapter = backupHistoryAdapter
+        // ELIMINADO: recyclerHistorial, backupHistoryAdapter, obtenerHistorialBackups y su uso
     }
     
     private fun configurarBotones() {
@@ -280,14 +276,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun obtenerHistorialBackups(): List<BackupWorker.BackupHistoryEntry> {
-        val prefs = getSharedPreferences("BackupPrefs", MODE_PRIVATE)
-        val archivos = prefs.getStringSet("uploaded_files", emptySet()) ?: emptySet()
-        return archivos.mapNotNull { hash ->
-            val parts = hash.split("|||")
-            if (parts.size == 3) BackupWorker.BackupHistoryEntry(parts[0], parts[1], parts[2].toLongOrNull() ?: 0L) else null
-        }.sortedByDescending { it.timestamp }
-    }
+    // ELIMINADO: obtenerHistorialBackups y su uso
 
 
     
@@ -296,8 +285,7 @@ class MainActivity : AppCompatActivity() {
         try {
             actualizarEstado()
             // Actualizar historial al volver a la pantalla
-            backupHistoryAdapter = BackupHistoryAdapter(obtenerHistorialBackups())
-            recyclerHistorial.adapter = backupHistoryAdapter
+            // ELIMINADO: recyclerHistorial, backupHistoryAdapter, obtenerHistorialBackups y su uso
         } catch (e: Exception) {
             Log.e(TAG, "Error en onResume: ${e.message}", e)
         }
