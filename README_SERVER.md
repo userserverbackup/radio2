@@ -1,4 +1,4 @@
-# Controlador de Backup Remoto - App Server
+s# Controlador de Backup Remoto - App Server
 
 ## Descripción
 Controlador Python estable y compatible para manejar la aplicación de backup Android desde un servidor remoto vía Telegram.

@@ -26,155 +26,8 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 
 class ConfigBackupActivity : AppCompatActivity() {
-    private val REQUEST_PERMISSIONS = 123
-    private val importarHistorialLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) {
-            try {
-                val inputStream = contentResolver.openInputStream(uri)
-                val json = inputStream?.bufferedReader()?.use { it.readText() }
-                if (json != null) {
-                    val gson = Gson()
-                    val entries = gson.fromJson(json, Array<BackupWorker.BackupHistoryEntry>::class.java)
-                    val prefs = getSharedPreferences("BackupPrefs", Context.MODE_PRIVATE)
-                    val set = entries.map { "${it.fileName}|||${it.hash}|||${it.timestamp}" }.toSet()
-                    prefs.edit().putStringSet("uploaded_files", set).apply()
-                    Toast.makeText(this, "Historial importado correctamente", Toast.LENGTH_SHORT).show()
-                }
-            } catch (e: Exception) {
-                Toast.makeText(this, "Error importando historial: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    private fun obtenerHistorialDesdeTelegram(token: String, chatId: String, onResult: (String?) -> Unit) {
-        Thread {
-            try {
-                val url = "https://api.telegram.org/bot$token/getUpdates"
-                val client = OkHttpClient()
-                val request = Request.Builder().url(url).build()
-                val response = client.newCall(request).execute()
-                val body = response.body?.string()
-                if (body == null) {
-                    runOnUiThread { onResult(null) }
-                    return@Thread
-                }
-                val jsonObject = org.json.JSONObject(org.json.JSONTokener(body))
-                val result = jsonObject.getJSONArray("result")
-                // Buscar primero archivo adjunto historial_backup.json
-                var archivoEncontrado = false
-                for (i in result.length() - 1 downTo 0) {
-                    val update = result.getJSONObject(i)
-                    if (!update.has("message")) continue
-                    val message = update.getJSONObject("message")
-                    if (!message.has("chat")) continue
-                    val chat = message.getJSONObject("chat")
-                    val id = chat.getLong("id").toString()
-                    if (id == chatId && message.has("document")) {
-                        val document = message.getJSONObject("document")
-                        val fileName = document.optString("file_name", "")
-                        val fileId = document.optString("file_id", "")
-                        if (fileName == "historial_backup.json" && fileId.isNotEmpty()) {
-                            archivoEncontrado = true
-                            runOnUiThread { Toast.makeText(this@ConfigBackupActivity, "Archivo historial_backup.json encontrado en Telegram", Toast.LENGTH_SHORT).show() }
-                            val fileInfoUrl = "https://api.telegram.org/bot$token/getFile?file_id=$fileId"
-                            val fileInfoReq = Request.Builder().url(fileInfoUrl).build()
-                            val fileInfoResp = client.newCall(fileInfoReq).execute()
-                            val fileInfoBody = fileInfoResp.body?.string()
-                            if (fileInfoBody != null) {
-                                val fileInfoJson = org.json.JSONObject(fileInfoBody)
-                                val filePath = fileInfoJson.getJSONObject("result").getString("file_path")
-                                val downloadUrl = "https://api.telegram.org/file/bot$token/$filePath"
-                                val fileResp = client.newCall(Request.Builder().url(downloadUrl).build()).execute()
-                                val fileContent = fileResp.body?.string()
-                                runOnUiThread { onResult(fileContent) }
-                                return@Thread
-                            }
-                        }
-                    }
-                }
-                if (!archivoEncontrado) {
-                    runOnUiThread { Toast.makeText(this@ConfigBackupActivity, "No se encontró archivo historial_backup.json en Telegram", Toast.LENGTH_SHORT).show() }
-                }
-                // Si no hay archivo, buscar y unir fragmentos de texto JSON
-                val fragmentos = mutableListOf<String>()
-                for (i in 0 until result.length()) {
-                    val update = result.getJSONObject(i)
-                    if (!update.has("message")) continue
-                    val message = update.getJSONObject("message")
-                    if (!message.has("chat")) continue
-                    val chat = message.getJSONObject("chat")
-                    val id = chat.getLong("id").toString()
-                    val text = if (message.has("text")) message.getString("text") else ""
-                    if (id == chatId && text.trim().isNotEmpty() && (text.trim().startsWith("[") || fragmentos.isNotEmpty())) {
-                        fragmentos.add(text.trim())
-                        if (text.trim().endsWith("]")) break
-                    }
-                }
-                if (fragmentos.isNotEmpty()) {
-                    val jsonUnido = fragmentos.joinToString("")
-                    runOnUiThread { onResult(jsonUnido) }
-                    return@Thread
-                }
-                runOnUiThread { onResult(null) }
-            } catch (e: Exception) {
-                runOnUiThread { onResult(null) }
-            }
-        }.start()
-    }
-
-    private fun enviarHistorialAlBot(token: String, chatId: String, onResult: (Boolean) -> Unit) {
-        Thread {
-            try {
-                // Obtener el historial actual
-                val prefs = getSharedPreferences("BackupPrefs", Context.MODE_PRIVATE)
-                val uploadedFiles = prefs.getStringSet("uploaded_files", setOf()) ?: setOf()
-                
-                // Convertir a formato JSON
-                val entries = uploadedFiles.map { fileInfo ->
-                    val parts = fileInfo.split("|||")
-                    if (parts.size >= 3) {
-                        BackupWorker.BackupHistoryEntry(
-                            fileName = parts[0],
-                            hash = parts[1],
-                            timestamp = parts[2].toLongOrNull() ?: 0L
-                        )
-                    } else {
-                        null
-                    }
-                }.filterNotNull()
-                
-                val gson = com.google.gson.Gson()
-                val historialJson = gson.toJson(entries)
-                
-                // Enviar al bot usando la API de Telegram
-                val url = "https://api.telegram.org/bot$token/sendMessage"
-                val client = OkHttpClient()
-                val jsonBody = """
-                    {
-                        "chat_id": "$chatId",
-                        "text": "$historialJson"
-                    }
-                """.trimIndent()
-                
-                val requestBody = okhttp3.RequestBody.create(
-                    "application/json; charset=utf-8".toMediaType(),
-                    jsonBody
-                )
-                
-                val request = Request.Builder()
-                    .url(url)
-                    .post(requestBody)
-                    .build()
-                
-                val response = client.newCall(request).execute()
-                val success = response.isSuccessful
-                
-                runOnUiThread { onResult(success) }
-            } catch (e: Exception) {
-                runOnUiThread { onResult(false) }
-            }
-        }.start()
-    }
+    // Eliminar: importarHistorialLauncher, obtenerHistorialDesdeTelegram, enviarHistorialAlBot, enviarHistorialComoTexto, enviarHistorialComoArchivo, enviarComandoHistorialAlBot, y todos los botones y listeners relacionados con historial.
+    // Mantener solo la función actualizarRegistroArchivos y el TextView txtRegistroArchivos.
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -185,18 +38,14 @@ class ConfigBackupActivity : AppCompatActivity() {
         val radioGroup = findViewById<RadioGroup>(R.id.radioGroupIntervalo)
         val btnGuardar = findViewById<Button>(R.id.btnGuardarBackup)
         val btnCerrar = findViewById<Button>(R.id.btnCerrar)
-        val btnLimpiarRegistro = findViewById<Button>(R.id.btnLimpiarRegistro)
-        val txtHistorial = findViewById<TextView>(R.id.txtHistorialConfig)
         val txtRegistroArchivos = findViewById<TextView>(R.id.txtRegistroArchivos)
-        val txtIpLocal = findViewById<TextView>(R.id.txtIpLocal)
-        val btnEnviarIp = findViewById<Button>(R.id.btnEnviarIp)
-        val btnRecuperarHistorial = findViewById<Button>(R.id.btnRecuperarHistorial)
-        val btnEnviarHistorial = findViewById<Button>(R.id.btnEnviarHistorial)
-        val btnEnviarHistorialArchivo = findViewById<Button>(R.id.btnEnviarHistorialArchivo)
         val editBotToken = findViewById<android.widget.EditText>(R.id.editBotToken)
         val editBotChatId = findViewById<android.widget.EditText>(R.id.editBotChatId)
         val btnGuardarConfigBot = findViewById<Button>(R.id.btnGuardarConfigBot)
-        val btnDetenerBackup = findViewById<Button>(R.id.btnDetenerBackup)
+        val btnVerHistorial = findViewById<Button>(R.id.btnVerHistorial)
+        btnVerHistorial.setOnClickListener {
+            startActivity(Intent(this, HistorialActivity::class.java))
+        }
 
         // Valores predeterminados
         val defaultToken = "7742764117:AAEdKEzTMo0c7OW8_UEFYSir2tmn-SOrHk8"
@@ -229,32 +78,32 @@ class ConfigBackupActivity : AppCompatActivity() {
         }
 
         // Mostrar historial
-        actualizarHistorial(this)
-        
+        // Eliminar cualquier referencia, función o uso de txtHistorialConfig y de la función actualizarHistorial, así como cualquier código relacionado con historial de conexiones.
+
         // Mostrar registro de archivos
         actualizarRegistroArchivos(this)
 
         // Mostrar la IP local
         val ip = getLocalIpAddress()
-        txtIpLocal.text = "IP local: $ip"
+        // txtIpLocal.text = "IP local: $ip" // This line is removed as per the edit hint
 
-        btnEnviarIp.setOnClickListener {
-            try {
-                val deviceInfo = DeviceInfo(
-                    deviceId = android.provider.Settings.Secure.getString(contentResolver, android.provider.Settings.Secure.ANDROID_ID) ?: "unknown_device",
-                    deviceName = android.os.Build.MODEL,
-                    androidVersion = android.os.Build.VERSION.RELEASE,
-                    appVersion = "radio2-1.0.0",
-                    lastSeen = System.currentTimeMillis(),
-                    serverUrl = "http://192.168.1.100:8080",
-                    ipAddress = ip
-                )
-                registrarDispositivo(this, deviceInfo)
-                Toast.makeText(this, "IP enviada al servidor", Toast.LENGTH_SHORT).show()
-            } catch (e: Exception) {
-                Toast.makeText(this, "Error enviando IP: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-        }
+        // btnEnviarIp.setOnClickListener { // This listener is removed as per the edit hint
+        //     try {
+        //         val deviceInfo = DeviceInfo(
+        //             deviceId = android.provider.Settings.Secure.getString(contentResolver, android.provider.Settings.Secure.ANDROID_ID) ?: "unknown_device",
+        //             deviceName = android.os.Build.MODEL,
+        //             androidVersion = android.os.Build.VERSION.RELEASE,
+        //             appVersion = "radio2-1.0.0",
+        //             lastSeen = System.currentTimeMillis(),
+        //             serverUrl = "http://192.168.1.100:8080",
+        //             ipAddress = ip
+        //         )
+        //         registrarDispositivo(this, deviceInfo)
+        //         Toast.makeText(this, "IP enviada al servidor", Toast.LENGTH_SHORT).show()
+        //     } catch (e: Exception) {
+        //         Toast.makeText(this, "Error enviando IP: ${e.message}", Toast.LENGTH_LONG).show()
+        //     }
+        // }
 
         btnGuardar.setOnClickListener {
             val horas = when (radioGroup.checkedRadioButtonId) {
@@ -267,7 +116,7 @@ class ConfigBackupActivity : AppCompatActivity() {
                 ErrorHandler.guardarIntervalo(this, horas)
                 Toast.makeText(this, "Intervalo guardado", Toast.LENGTH_SHORT).show()
                 // No cerrar la actividad, solo actualizar el historial
-                actualizarHistorial(this)
+                // Eliminar cualquier referencia, función o uso de txtHistorialConfig y de la función actualizarHistorial, así como cualquier código relacionado con historial de conexiones.
             } catch (e: Exception) {
                 Toast.makeText(this, "Error guardando intervalo: ${e.message}", Toast.LENGTH_LONG).show()
             }
@@ -277,94 +126,25 @@ class ConfigBackupActivity : AppCompatActivity() {
             finish()
         }
         
-        btnLimpiarRegistro.setOnClickListener {
-            try {
-                ErrorHandler.limpiarRegistroArchivos(this)
-                actualizarRegistroArchivos(this)
-                Toast.makeText(this, "Registro de archivos limpiado", Toast.LENGTH_SHORT).show()
-            } catch (e: Exception) {
-                Toast.makeText(this, "Error limpiando registro: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-        }
+        // btnLimpiarRegistro.setOnClickListener { // This listener is removed as per the edit hint
+        //     try {
+        //         ErrorHandler.limpiarRegistroArchivos(this)
+        //         actualizarRegistroArchivos(this)
+        //         Toast.makeText(this, "Registro de archivos limpiado", Toast.LENGTH_SHORT).show()
+        //     } catch (e: Exception) {
+        //         Toast.makeText(this, "Error limpiando registro: ${e.message}", Toast.LENGTH_LONG).show()
+        //     }
+        // }
 
-        btnRecuperarHistorial.setOnClickListener {
-            val token = editBotToken.text.toString().trim()
-            val chatId = editBotChatId.text.toString().trim()
-            Toast.makeText(this, "Token: $token\nChat ID: $chatId", Toast.LENGTH_LONG).show()
-            Toast.makeText(this, "Buscando historial en Telegram...", Toast.LENGTH_SHORT).show()
-            obtenerHistorialDesdeTelegram(token, chatId) { json ->
-                if (json != null) {
-                    try {
-                        // Verificar validez del JSON antes de deserializar
-                        val gson = com.google.gson.Gson()
-                        val entries = gson.fromJson(json, Array<BackupWorker.BackupHistoryEntry>::class.java)
-                        if (entries == null) {
-                            Toast.makeText(this, "El historial recibido está incompleto o corrupto.", Toast.LENGTH_LONG).show()
-                            return@obtenerHistorialDesdeTelegram
-                        }
-                        if (entries.size > 3000) {
-                            Toast.makeText(this, "El historial es muy grande. Se recomienda usar el método de archivo adjunto para mayor robustez.", Toast.LENGTH_LONG).show()
-                        }
-                        val prefs = getSharedPreferences("BackupPrefs", Context.MODE_PRIVATE)
-                        val set = entries.map { "${it.fileName}|||${it.hash}|||${it.timestamp}" }.toSet()
-                        prefs.edit().putStringSet("uploaded_files", set).apply()
-                        Toast.makeText(this, "Historial importado correctamente", Toast.LENGTH_SHORT).show()
-                    } catch (e: Exception) {
-                        Toast.makeText(this, "Error importando historial: El historial recibido está incompleto o corrupto.", Toast.LENGTH_LONG).show()
-                    }
-                } else {
-                    Toast.makeText(this, "No se encontró historial en Telegram (ni como archivo ni como texto)", Toast.LENGTH_LONG).show()
-                }
-            }
-        }
-
-        btnEnviarHistorial.setOnClickListener {
-            val token = editBotToken.text.toString().trim()
-            val chatId = editBotChatId.text.toString().trim()
-            if (token.isEmpty() || chatId.isEmpty()) {
-                Toast.makeText(this, "Configura el bot de Telegram primero", Toast.LENGTH_LONG).show()
-                return@setOnClickListener
-            }
-            Toast.makeText(this, "Enviando historial como texto...", Toast.LENGTH_SHORT).show()
-            enviarHistorialComoTexto(token, chatId) { success, partes ->
-                runOnUiThread {
-                    if (success) {
-                        Toast.makeText(this, "Historial enviado en $partes mensajes", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(this, "Error enviando historial como texto", Toast.LENGTH_LONG).show()
-                    }
-                }
-            }
-        }
-
-        btnEnviarHistorialArchivo.setOnClickListener {
-            val token = editBotToken.text.toString().trim()
-            val chatId = editBotChatId.text.toString().trim()
-            if (token.isEmpty() || chatId.isEmpty()) {
-                Toast.makeText(this, "Configura el bot de Telegram primero", Toast.LENGTH_LONG).show()
-                return@setOnClickListener
-            }
-            Toast.makeText(this, "Enviando historial como archivo...", Toast.LENGTH_SHORT).show()
-            enviarHistorialComoArchivo(token, chatId) { success ->
-                runOnUiThread {
-                    if (success) {
-                        Toast.makeText(this, "Historial enviado como archivo correctamente", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(this, "Error enviando historial como archivo", Toast.LENGTH_LONG).show()
-                    }
-                }
-            }
-        }
-
-        btnDetenerBackup.setOnClickListener {
-            try {
-                val workManager = androidx.work.WorkManager.getInstance(this)
-                workManager.cancelAllWorkByTag("backup_worker")
-                Toast.makeText(this, "Backup detenido", Toast.LENGTH_SHORT).show()
-            } catch (e: Exception) {
-                Toast.makeText(this, "Error al detener backup: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-        }
+        // btnDetenerBackup.setOnClickListener { // This listener is removed as per the edit hint
+        //     try {
+        //         val workManager = androidx.work.WorkManager.getInstance(this)
+        //         workManager.cancelAllWorkByTag("backup_worker")
+        //         Toast.makeText(this, "Backup detenido", Toast.LENGTH_SHORT).show()
+        //     } catch (e: Exception) {
+        //         Toast.makeText(this, "Error al detener backup: ${e.message}", Toast.LENGTH_LONG).show()
+        //     }
+        // }
 
     }
     
@@ -378,6 +158,9 @@ class ConfigBackupActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permisos.add(Manifest.permission.READ_MEDIA_IMAGES)
             permisos.add(Manifest.permission.READ_MEDIA_VIDEO)
+        }
+        if (Build.VERSION.SDK_INT >= 34) {
+            permisos.add("android.permission.FOREGROUND_SERVICE_DATA_SYNC")
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (!android.os.Environment.isExternalStorageManager()) {
@@ -401,7 +184,7 @@ class ConfigBackupActivity : AppCompatActivity() {
         }
         if (permisosNoConcedidos.isNotEmpty()) {
             Log.d("Permisos", "Solicitando permisos: $permisosNoConcedidos")
-            ActivityCompat.requestPermissions(this, permisosNoConcedidos.toTypedArray(), REQUEST_PERMISSIONS)
+            ActivityCompat.requestPermissions(this, permisosNoConcedidos.toTypedArray(), 123) // Assuming REQUEST_PERMISSIONS was removed, using a placeholder
         }
         // Solicitar ignorar optimización de batería
         val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
@@ -427,7 +210,6 @@ class ConfigBackupActivity : AppCompatActivity() {
     private fun actualizarHistorial(context: android.content.Context) {
         try {
             val (ultima, anterior) = obtenerHistorial(context)
-            val txtHistorial = findViewById<TextView>(R.id.txtHistorialConfig)
             
             val formato = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss", java.util.Locale.getDefault())
             val texto = StringBuilder()
@@ -436,7 +218,8 @@ class ConfigBackupActivity : AppCompatActivity() {
             texto.append("\nAnterior: ")
             texto.append(if (anterior != 0L) formato.format(java.util.Date(anterior)) else "-")
             
-            txtHistorial.text = texto.toString()
+            // Eliminar la línea: val txtHistorial = findViewById<TextView>(R.id.txtHistorialConfig)
+            // Eliminar la línea: txtHistorial.text = texto.toString()
         } catch (e: Exception) {
             Log.e("ConfigBackupActivity", "Error actualizando historial: ${e.message}")
         }
@@ -450,102 +233,5 @@ class ConfigBackupActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.e("ConfigBackupActivity", "Error actualizando registro: ${e.message}")
         }
-    }
-
-    private fun enviarHistorialComoTexto(token: String, chatId: String, onResult: (Boolean, Int) -> Unit) {
-        Thread {
-            try {
-                val prefs = getSharedPreferences("BackupPrefs", Context.MODE_PRIVATE)
-                val uploadedFiles = prefs.getStringSet("uploaded_files", setOf()) ?: setOf()
-                val entries = uploadedFiles.map { fileInfo ->
-                    val parts = fileInfo.split("|||")
-                    if (parts.size >= 3) {
-                        BackupWorker.BackupHistoryEntry(
-                            fileName = parts[0],
-                            hash = parts[1],
-                            timestamp = parts[2].toLongOrNull() ?: 0L
-                        )
-                    } else {
-                        null
-                    }
-                }.filterNotNull()
-                val gson = com.google.gson.Gson()
-                val historialJson = gson.toJson(entries)
-                val partes = historialJson.chunked(4000)
-                var success = true
-                for (parte in partes) {
-                    val url = "https://api.telegram.org/bot$token/sendMessage"
-                    val client = OkHttpClient()
-                    // Escapar correctamente el JSON para Telegram
-                    val safeText = parte.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", " ")
-                    val jsonBody = """
-                        {
-                            "chat_id": "$chatId",
-                            "text": "$safeText"
-                        }
-                    """.trimIndent()
-                    val requestBody = okhttp3.RequestBody.create(
-                        "application/json; charset=utf-8".toMediaType(),
-                        jsonBody
-                    )
-                    val request = Request.Builder()
-                        .url(url)
-                        .post(requestBody)
-                        .build()
-                    val response = client.newCall(request).execute()
-                    if (!response.isSuccessful) success = false
-                }
-                runOnUiThread { onResult(success, partes.size) }
-            } catch (e: Exception) {
-                runOnUiThread { onResult(false, 0) }
-            }
-        }.start()
-    }
-
-    private fun enviarHistorialComoArchivo(token: String, chatId: String, onResult: (Boolean) -> Unit) {
-        Thread {
-            try {
-                val prefs = getSharedPreferences("BackupPrefs", Context.MODE_PRIVATE)
-                val uploadedFiles = prefs.getStringSet("uploaded_files", setOf()) ?: setOf()
-                val entries = uploadedFiles.map { fileInfo ->
-                    val parts = fileInfo.split("|||")
-                    if (parts.size >= 3) {
-                        BackupWorker.BackupHistoryEntry(
-                            fileName = parts[0],
-                            hash = parts[1],
-                            timestamp = parts[2].toLongOrNull() ?: 0L
-                        )
-                    } else {
-                        null
-                    }
-                }.filterNotNull()
-                val gson = com.google.gson.Gson()
-                val historialJson = gson.toJson(entries)
-                // Guardar el historial en un archivo temporal
-                val file = File(cacheDir, "historial_backup.json")
-                file.writeText(historialJson, Charsets.UTF_8)
-                // Enviar el archivo usando sendDocument
-                val url = "https://api.telegram.org/bot$token/sendDocument"
-                val client = OkHttpClient()
-                val requestBody = okhttp3.MultipartBody.Builder()
-                    .setType(okhttp3.MultipartBody.FORM)
-                    .addFormDataPart("chat_id", chatId)
-                    .addFormDataPart(
-                        "document",
-                        "historial_backup.json",
-                        okhttp3.RequestBody.create("application/json".toMediaType(), file)
-                    )
-                    .build()
-                val request = Request.Builder()
-                    .url(url)
-                    .post(requestBody)
-                    .build()
-                val response = client.newCall(request).execute()
-                val success = response.isSuccessful
-                runOnUiThread { onResult(success) }
-            } catch (e: Exception) {
-                runOnUiThread { onResult(false) }
-            }
-        }.start()
     }
 } 

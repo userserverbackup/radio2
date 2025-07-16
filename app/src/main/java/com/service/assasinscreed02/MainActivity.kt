@@ -18,6 +18,8 @@ import android.app.AlertDialog
 import android.os.Environment
 import android.util.Log
 import android.widget.Toast
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 
 class MainActivity : AppCompatActivity() {
     companion object {
@@ -28,6 +30,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnControl: Button
     private lateinit var txtEstado: TextView
     private var backupActivo = false
+    private lateinit var recyclerHistorial: RecyclerView
+    private lateinit var backupHistoryAdapter: BackupHistoryAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,6 +64,10 @@ class MainActivity : AppCompatActivity() {
     private fun inicializarVistas() {
         btnControl = findViewById(R.id.btnControl)
         txtEstado = findViewById(R.id.txtEstado)
+        recyclerHistorial = findViewById(R.id.recyclerHistorial)
+        recyclerHistorial.layoutManager = LinearLayoutManager(this)
+        backupHistoryAdapter = BackupHistoryAdapter(obtenerHistorialBackups())
+        recyclerHistorial.adapter = backupHistoryAdapter
     }
     
     private fun configurarBotones() {
@@ -267,12 +275,24 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun obtenerHistorialBackups(): List<BackupWorker.BackupHistoryEntry> {
+        val prefs = getSharedPreferences("BackupPrefs", MODE_PRIVATE)
+        val archivos = prefs.getStringSet("uploaded_files", emptySet()) ?: emptySet()
+        return archivos.mapNotNull { hash ->
+            val parts = hash.split("|||")
+            if (parts.size == 3) BackupWorker.BackupHistoryEntry(parts[0], parts[1], parts[2].toLongOrNull() ?: 0L) else null
+        }.sortedByDescending { it.timestamp }
+    }
+
 
     
     override fun onResume() {
         super.onResume()
         try {
             actualizarEstado()
+            // Actualizar historial al volver a la pantalla
+            backupHistoryAdapter = BackupHistoryAdapter(obtenerHistorialBackups())
+            recyclerHistorial.adapter = backupHistoryAdapter
         } catch (e: Exception) {
             Log.e(TAG, "Error en onResume: ${e.message}", e)
         }

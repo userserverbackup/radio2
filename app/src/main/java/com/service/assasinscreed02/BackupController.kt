@@ -36,9 +36,6 @@ class BackupController : BroadcastReceiver() {
                 ACTION_START_BACKUP -> {
                     handleStartBackup(context, intent)
                 }
-                ACTION_STOP_BACKUP -> {
-                    handleStopBackup(context, intent)
-                }
                 ACTION_GET_STATUS -> {
                     handleGetStatus(context, intent)
                 }
@@ -88,18 +85,6 @@ class BackupController : BroadcastReceiver() {
         } catch (e: Exception) {
             Log.e(TAG, "Error iniciando backup: ${e.message}", e)
             sendResponse(context, intent, false, "Error iniciando backup: ${e.message}")
-        }
-    }
-    
-    private fun handleStopBackup(context: Context, intent: Intent) {
-        try {
-            WorkManager.getInstance(context).cancelUniqueWork("backup_trabajo")
-            Log.d(TAG, "Backup detenido")
-            sendResponse(context, intent, true, "Backup detenido exitosamente")
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Error deteniendo backup: ${e.message}", e)
-            sendResponse(context, intent, false, "Error deteniendo backup: ${e.message}")
         }
     }
     

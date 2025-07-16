@@ -108,27 +108,6 @@
                 android:padding="20dp">
 
                 <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Historial de Conexiones"
-                    android:textColor="@color/text_primary_dark"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="16dp" />
-
-                <TextView
-                    android:id="@+id/txtHistorialConfig"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Última conexión: -\nAnterior: -"
-                    android:textColor="@color/text_secondary_dark"
-                    android:textSize="14sp"
-                    android:gravity="center"
-                    android:background="@drawable/historial_background"
-                    android:padding="16dp"
-                    android:layout_marginBottom="16dp" />
-
-                <TextView
                     android:id="@+id/txtRegistroArchivos"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -139,66 +118,6 @@
                     android:background="@drawable/historial_background"
                     android:padding="16dp"
                     android:layout_marginBottom="16dp" />
-
-                <TextView
-                    android:id="@+id/txtIpLocal"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="IP local: -"
-                    android:textColor="@color/text_secondary_dark"
-                    android:textSize="16sp"
-                    android:gravity="center"
-                    android:background="@drawable/historial_background"
-                    android:padding="12dp"
-                    android:layout_marginBottom="8dp" />
-
-                <Button
-                    android:id="@+id/btnEnviarIp"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Enviar IP al servidor"
-                    style="@style/ButtonPrimary"
-                    android:layout_marginBottom="16dp" />
-
-                <Button
-                    android:id="@+id/btnRecuperarHistorial"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Recuperar historial desde el bot"
-                    style="@style/ButtonPrimary"
-                    android:layout_marginBottom="16dp" />
-
-                <Button
-                    android:id="@+id/btnEnviarHistorial"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Enviar historial como texto"
-                    style="@style/ButtonPrimary"
-                    android:layout_marginBottom="8dp" />
-
-                <Button
-                    android:id="@+id/btnEnviarHistorialArchivo"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Enviar historial como archivo"
-                    style="@style/ButtonPrimary"
-                    android:layout_marginBottom="16dp" />
-
-                <Button
-                    android:id="@+id/btnDetenerBackup"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Detener backup"
-                    style="@style/ButtonSecondary"
-                    android:layout_marginBottom="16dp" />
-
-                <Button
-                    android:id="@+id/btnLimpiarRegistro"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Limpiar Registro de Archivos"
-                    style="@style/ButtonSecondary"
-                    android:layout_marginBottom="8dp" />
 
                 <!-- Configuración del bot de Telegram -->
                 <TextView
@@ -237,6 +156,14 @@
 
             </LinearLayout>
         </androidx.cardview.widget.CardView>
+
+        <Button
+            android:id="@+id/btnVerHistorial"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Ver historial"
+            style="@style/ButtonSecondary"
+            android:layout_marginTop="16dp" />
 
     </LinearLayout>
 </ScrollView> 

@@ -65,14 +65,6 @@ class BackupClient(private val context: Context) {
     }
     
     /**
-     * Detiene el backup automático
-     */
-    fun stopBackup(): Response {
-        val intent = Intent(BackupController.ACTION_STOP_BACKUP)
-        return sendIntent(intent)
-    }
-    
-    /**
      * Obtiene el estado actual del backup
      */
     fun getStatus(): Response {

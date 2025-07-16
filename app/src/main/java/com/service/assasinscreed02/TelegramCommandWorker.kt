@@ -99,18 +99,8 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
                     programarBackup(applicationContext, obtenerIntervalo(applicationContext).toLong())
                     enviarConfirmacionTelegram(token, chatId, "✅ Backup iniciado en el dispositivo.")
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error iniciando backup: ${e.message}")
-                    enviarConfirmacionTelegram(token, chatId, "❌ Error iniciando backup: ${e.message}")
-                }
-            }
-            text.contains("/detener_backup", ignoreCase = true) -> {
-                Log.d(TAG, "Comando recibido: detener_backup")
-                try {
-                    WorkManager.getInstance(applicationContext).cancelUniqueWork("backup_trabajo")
-                    enviarConfirmacionTelegram(token, chatId, "🛑 Backup detenido en el dispositivo.")
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error deteniendo backup: ${e.message}")
-                    enviarConfirmacionTelegram(token, chatId, "❌ Error deteniendo backup: ${e.message}")
+                    Log.e(TAG, "Error iniciando backup: "+e.message)
+                    enviarConfirmacionTelegram(token, chatId, "❌ Error iniciando backup: "+e.message)
                 }
             }
             text.contains("/estado", ignoreCase = true) -> {
@@ -119,8 +109,8 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
                     val estado = obtenerEstadoBackup()
                     enviarConfirmacionTelegram(token, chatId, "📊 Estado del backup: $estado")
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error obteniendo estado: ${e.message}")
-                    enviarConfirmacionTelegram(token, chatId, "❌ Error obteniendo estado: ${e.message}")
+                    Log.e(TAG, "Error obteniendo estado: "+e.message)
+                    enviarConfirmacionTelegram(token, chatId, "❌ Error obteniendo estado: "+e.message)
                 }
             }
         }

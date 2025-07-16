@@ -49,10 +49,6 @@ class ControlReceiver : BroadcastReceiver() {
                         Log.w(TAG, "Configuración del bot no encontrada")
                     }
                 }
-                "detener" -> {
-                    Log.d(TAG, "Deteniendo backup desde receiver")
-                    WorkManager.getInstance(context).cancelUniqueWork("backup_trabajo")
-                }
                 else -> {
                     Log.w(TAG, "Comando no reconocido: $comando")
                 }
