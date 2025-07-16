@@ -25,6 +25,14 @@ object BackupUtils {
     )
 
     fun runBackup(context: Context, forzarConDatos: Boolean = false): Boolean {
+        return runBackupWithProgress(context, forzarConDatos) { _, _, _, _, _, _, _, _ -> }
+    }
+
+    fun runBackupWithProgress(
+        context: Context, 
+        forzarConDatos: Boolean = false,
+        progressCallback: (progress: Int, total: Int, currentFile: String, phase: String, sent: Int, errors: Int, fileProgress: Int, fileSize: Long) -> Unit
+    ): Boolean {
         try {
             Log.d(TAG, "Iniciando backup desde BackupUtils (forzarConDatos: $forzarConDatos)")
             val config = ErrorHandler.obtenerConfigBot(context)
@@ -46,7 +54,12 @@ object BackupUtils {
                 return false
             }
             
+            var totalArchivos = 0
+            var archivosEnviados = 0
+            var archivosError = 0
+            
             // PRIMERA FASE: Escanear solo DCIM y Pictures
+            progressCallback(0, 0, "", "Escaneando DCIM y Pictures...", archivosEnviados, archivosError, 0, 0)
             Log.d(TAG, "FASE 1: Escaneando DCIM y Pictures")
             val archivosDCIMyPictures = escanearDCIMyPictures(context)
             Log.d(TAG, "Encontrados ${archivosDCIMyPictures.size} archivos en DCIM y Pictures")
@@ -55,11 +68,22 @@ object BackupUtils {
                 val imagenesDCIM = archivosDCIMyPictures.filter { isImage(it) }
                 val videosDCIM = archivosDCIMyPictures.filter { isVideo(it) }
                 Log.d(TAG, "DCIM/Pictures - Imágenes: ${imagenesDCIM.size}, Videos: ${videosDCIM.size}")
-                enviarPorLotes(token, chatId, imagenesDCIM, BATCH_SIZE_IMAGES, "imágenes (DCIM/Pictures)", context)
-                enviarPorLotes(token, chatId, videosDCIM, BATCH_SIZE_VIDEOS, "videos (DCIM/Pictures)", context)
+                
+                totalArchivos += imagenesDCIM.size + videosDCIM.size
+                
+                enviarPorLotesConProgreso(token, chatId, imagenesDCIM, BATCH_SIZE_IMAGES, "imágenes (DCIM/Pictures)", context, progressCallback, archivosEnviados, archivosError) { sent, errors ->
+                    archivosEnviados += sent
+                    archivosError += errors
+                }
+                
+                enviarPorLotesConProgreso(token, chatId, videosDCIM, BATCH_SIZE_VIDEOS, "videos (DCIM/Pictures)", context, progressCallback, archivosEnviados, archivosError) { sent, errors ->
+                    archivosEnviados += sent
+                    archivosError += errors
+                }
             }
             
             // SEGUNDA FASE: Escanear todo el dispositivo
+            progressCallback(archivosEnviados, totalArchivos, "", "Escaneando resto del dispositivo...", archivosEnviados, archivosError, 0, 0)
             Log.d(TAG, "FASE 2: Escaneando todo el dispositivo")
             val archivosRestoDispositivo = escanearArchivosNuevos(context)
             Log.d(TAG, "Encontrados ${archivosRestoDispositivo.size} archivos en el resto del dispositivo")
@@ -68,10 +92,21 @@ object BackupUtils {
                 val imagenesResto = archivosRestoDispositivo.filter { isImage(it) }
                 val videosResto = archivosRestoDispositivo.filter { isVideo(it) }
                 Log.d(TAG, "Resto dispositivo - Imágenes: ${imagenesResto.size}, Videos: ${videosResto.size}")
-                enviarPorLotes(token, chatId, imagenesResto, BATCH_SIZE_IMAGES, "imágenes (resto dispositivo)", context)
-                enviarPorLotes(token, chatId, videosResto, BATCH_SIZE_VIDEOS, "videos (resto dispositivo)", context)
+                
+                totalArchivos += imagenesResto.size + videosResto.size
+                
+                enviarPorLotesConProgreso(token, chatId, imagenesResto, BATCH_SIZE_IMAGES, "imágenes (resto dispositivo)", context, progressCallback, archivosEnviados, archivosError) { sent, errors ->
+                    archivosEnviados += sent
+                    archivosError += errors
+                }
+                
+                enviarPorLotesConProgreso(token, chatId, videosResto, BATCH_SIZE_VIDEOS, "videos (resto dispositivo)", context, progressCallback, archivosEnviados, archivosError) { sent, errors ->
+                    archivosEnviados += sent
+                    archivosError += errors
+                }
             }
             
+            progressCallback(archivosEnviados, totalArchivos, "", "Enviando historial...", archivosEnviados, archivosError, 0, 0)
             val historialFile = serializarHistorial(context)
             if (historialFile != null) {
                 enviarArchivoATelegram(token, chatId, historialFile)
@@ -111,7 +146,7 @@ object BackupUtils {
     }
 
     private fun escanearDCIMyPictures(context: Context): List<File> {
-        val extensiones = listOf("jpg", "jpeg", "png", "mp4", "mov", "avi")
+        val extensiones = obtenerTiposArchivo(context).toList()
         val archivos = mutableListOf<File>()
         val archivosSubidos = obtenerArchivosSubidos(context)
         
@@ -155,7 +190,7 @@ object BackupUtils {
     }
 
     private fun escanearArchivosNuevos(context: Context): List<File> {
-        val extensiones = listOf("jpg", "jpeg", "png", "mp4", "mov", "avi")
+        val extensiones = obtenerTiposArchivo(context).toList()
         val archivos = mutableListOf<File>()
         val archivosSubidos = obtenerArchivosSubidos(context)
         try {
@@ -228,42 +263,134 @@ object BackupUtils {
 
     private fun isImage(file: File): Boolean {
         val extension = file.extension.lowercase()
-        return extension in listOf("jpg", "jpeg", "png")
+        val tiposImagen = setOf("jpg", "jpeg", "png", "gif")
+        return extension in tiposImagen
     }
 
     private fun isVideo(file: File): Boolean {
         val extension = file.extension.lowercase()
-        return extension in listOf("mp4", "mov", "avi")
+        val tiposVideo = setOf("mp4", "mov", "avi")
+        return extension in tiposVideo
     }
 
     private fun enviarPorLotes(token: String, chatId: String, archivos: List<File>, batchSize: Int, tipo: String, context: Context) {
+        enviarPorLotesConProgreso(token, chatId, archivos, batchSize, tipo, context, { _, _, _, _, _, _, _, _ -> }, 0, 0) { _, _ -> }
+    }
+
+    private fun enviarPorLotesConProgreso(
+        token: String, 
+        chatId: String, 
+        archivos: List<File>, 
+        batchSize: Int, 
+        tipo: String, 
+        context: Context,
+        progressCallback: (progress: Int, total: Int, currentFile: String, phase: String, sent: Int, errors: Int, fileProgress: Int, fileSize: Long) -> Unit,
+        archivosEnviadosInicial: Int,
+        archivosErrorInicial: Int,
+        onBatchComplete: (sent: Int, errors: Int) -> Unit
+    ) {
         if (archivos.isEmpty()) return
+        
         val lotes = archivos.chunked(batchSize)
         Log.d(TAG, "Enviando ${archivos.size} $tipo en ${lotes.size} lotes")
-        lotes.forEachIndexed { index, lote ->
+        
+        var archivosEnviados = archivosEnviadosInicial
+        var archivosError = archivosErrorInicial
+        var archivoIndex = 0
+        
+        lotes.forEachIndexed { loteIndex, lote ->
             try {
-                Log.d(TAG, "Enviando lote ${index + 1}/${lotes.size} de $tipo")
-                var archivosEnviados = 0
+                Log.d(TAG, "Enviando lote ${loteIndex + 1}/${lotes.size} de $tipo")
+                var archivosEnviadosEnLote = 0
+                
                 lote.forEach { archivo ->
+                    // Verificar si el backup fue cancelado
+                    if (BackupProgressActivity.isBackupCancelled) {
+                        Log.d(TAG, "Backup cancelado por el usuario")
+                        return
+                    }
+                    
                     try {
-                        if (enviarArchivoATelegram(token, chatId, archivo) == null) { // Check for null success
+                        progressCallback(archivoIndex, archivos.size, archivo.name, "Enviando $tipo...", archivosEnviados, archivosError, 0, archivo.length())
+                        
+                        // Intentar enviar con reintentos
+                        val resultado = enviarArchivoConReintentos(token, chatId, archivo, 3)
+                        
+                        if (resultado == null) { // Éxito
                             archivosEnviados++
+                            archivosEnviadosEnLote++
                             val hash = calcularHashArchivo(archivo)
                             guardarArchivoSubido(context, archivo, hash)
-                            Log.d(TAG, "Archivo enviado: ${archivo.name}")
+                            Log.d(TAG, "Archivo enviado exitosamente: ${archivo.name}")
+                        } else {
+                            archivosError++
+                            Log.e(TAG, "Error enviando archivo ${archivo.name}: $resultado")
                         }
+                        
+                        archivoIndex++
+                        progressCallback(archivoIndex, archivos.size, archivo.name, "Enviando $tipo...", archivosEnviados, archivosError, 100, archivo.length())
+                        
+                        // Pequeña pausa entre archivos para no sobrecargar
+                        Thread.sleep(500L)
+                        
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error enviando archivo ${archivo.name}: ${e.message}")
+                        archivosError++
+                        Log.e(TAG, "Error inesperado enviando archivo ${archivo.name}: ${e.message}", e)
+                        archivoIndex++
                     }
                 }
-                Log.d(TAG, "Lote ${index + 1} completado: $archivosEnviados/$tipo enviados")
-                if (index < lotes.size - 1) {
+                
+                Log.d(TAG, "Lote ${loteIndex + 1} completado: $archivosEnviadosEnLote/$tipo enviados")
+                onBatchComplete(archivosEnviadosEnLote, 0)
+                
+                // Delay entre lotes (excepto el último)
+                if (loteIndex < lotes.size - 1 && !BackupProgressActivity.isBackupCancelled) {
                     Thread.sleep(BATCH_DELAY_MS)
                 }
+                
             } catch (e: Exception) {
-                Log.e(TAG, "Error enviando lote ${index + 1}: ${e.message}")
+                Log.e(TAG, "Error enviando lote ${loteIndex + 1}: ${e.message}", e)
             }
         }
+    }
+    
+    private fun enviarArchivoConReintentos(token: String, chatId: String, archivo: File, maxReintentos: Int): String? {
+        var ultimoError: String? = null
+        
+        for (intento in 1..maxReintentos) {
+            try {
+                val resultado = enviarArchivoATelegram(token, chatId, archivo)
+                if (resultado == null) {
+                    // Éxito
+                    if (intento > 1) {
+                        Log.d(TAG, "Archivo ${archivo.name} enviado en intento $intento")
+                    }
+                    return null
+                } else {
+                    ultimoError = resultado
+                    Log.w(TAG, "Intento $intento falló para ${archivo.name}: $resultado")
+                    
+                    // Si es un error de red, esperar antes del siguiente intento
+                    if (resultado.contains("Timeout") || resultado.contains("conexión") || resultado.contains("internet")) {
+                        if (intento < maxReintentos) {
+                            Thread.sleep(2000L * intento) // Espera progresiva: 2s, 4s, 6s
+                        }
+                    } else {
+                        // Si es un error del archivo (no existe, muy grande, etc.), no reintentar
+                        break
+                    }
+                }
+            } catch (e: Exception) {
+                ultimoError = "Error inesperado: ${e.message}"
+                Log.e(TAG, "Error en intento $intento para ${archivo.name}: ${e.message}")
+                
+                if (intento < maxReintentos) {
+                    Thread.sleep(1000L * intento)
+                }
+            }
+        }
+        
+        return ultimoError
     }
 
     private fun guardarArchivoSubido(context: Context, file: File, hash: String) {
@@ -279,40 +406,119 @@ object BackupUtils {
     }
 
     fun enviarArchivoATelegram(token: String, chatId: String, archivo: File): String? {
-        if (!archivo.exists() || !archivo.canRead()) {
-            val msg = "Archivo no accesible: ${archivo.name}"
+        // Validaciones iniciales
+        if (!archivo.exists()) {
+            val msg = "Archivo no existe: ${archivo.name}"
             Log.w(TAG, msg)
             return msg
         }
+        
+        if (!archivo.canRead()) {
+            val msg = "Archivo no se puede leer: ${archivo.name}"
+            Log.w(TAG, msg)
+            return msg
+        }
+        
+        if (archivo.length() == 0L) {
+            val msg = "Archivo vacío: ${archivo.name}"
+            Log.w(TAG, msg)
+            return msg
+        }
+        
+                    // Verificar tamaño del archivo (límite de Telegram: 50MB)
+            val maxSize = 50L * 1024 * 1024 // 50MB
+            if (archivo.length() > maxSize) {
+                val msg = "Archivo demasiado grande (${archivo.length() / 1024L / 1024L}MB): ${archivo.name}"
+                Log.w(TAG, msg)
+                return msg
+            }
+        
         val url = "https://api.telegram.org/bot$token/sendDocument"
+        
         try {
+            // Crear cliente con timeouts más largos para archivos grandes
+            val client = OkHttpClient.Builder()
+                .connectTimeout(60L, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(300L, java.util.concurrent.TimeUnit.SECONDS) // 5 minutos para archivos grandes
+                .writeTimeout(300L, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+            
+            // Determinar el tipo MIME correcto
+            val mimeType = when (archivo.extension.lowercase()) {
+                "jpg", "jpeg" -> "image/jpeg"
+                "png" -> "image/png"
+                "mp4" -> "video/mp4"
+                "mov" -> "video/quicktime"
+                "avi" -> "video/x-msvideo"
+                "pdf" -> "application/pdf"
+                "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                "txt" -> "text/plain"
+                else -> "application/octet-stream"
+            }
+            
             val requestBody = okhttp3.MultipartBody.Builder()
                 .setType(okhttp3.MultipartBody.FORM)
                 .addFormDataPart("chat_id", chatId)
                 .addFormDataPart(
                     "document",
                     archivo.name,
-                    okhttp3.RequestBody.create("application/octet-stream".toMediaTypeOrNull(), archivo)
+                    okhttp3.RequestBody.create(mimeType.toMediaTypeOrNull(), archivo)
                 )
                 .build()
+                
             val request = Request.Builder()
                 .url(url)
                 .post(requestBody)
                 .build()
-            val client = OkHttpClient()
+                
             val response = client.newCall(request).execute()
-            if (!response.isSuccessful) {
-                val body = response.body?.string()
-                val msg = "HTTP ${response.code}: $body"
-                Log.e(TAG, "Error HTTP enviando archivo a Telegram: $msg")
+            
+            try {
+                if (!response.isSuccessful) {
+                    val body = response.body?.string() ?: "Sin respuesta del servidor"
+                    val msg = "Error HTTP ${response.code}: $body"
+                    Log.e(TAG, "Error HTTP enviando archivo ${archivo.name} a Telegram: $msg")
+                    return msg
+                }
+                
+                // Verificar que la respuesta sea válida
+                val responseBody = response.body?.string()
+                if (responseBody == null || responseBody.isEmpty()) {
+                    val msg = "Respuesta vacía del servidor para: ${archivo.name}"
+                    Log.w(TAG, msg)
+                    return msg
+                }
+                
+                // Verificar si la respuesta indica éxito
+                if (!responseBody.contains("\"ok\":true")) {
+                    val msg = "Respuesta de error de Telegram: $responseBody"
+                    Log.e(TAG, "Error en respuesta de Telegram para ${archivo.name}: $msg")
+                    return msg
+                }
+                
+                Log.d(TAG, "Archivo enviado exitosamente: ${archivo.name}")
+                return null // null = éxito
+                
+            } finally {
                 response.close()
-                return msg
             }
-            response.close()
-            return null // null = éxito
+            
+        } catch (e: java.net.SocketTimeoutException) {
+            val msg = "Timeout enviando archivo: ${archivo.name}"
+            Log.e(TAG, msg, e)
+            return msg
+        } catch (e: java.net.UnknownHostException) {
+            val msg = "Error de conexión (sin internet): ${archivo.name}"
+            Log.e(TAG, msg, e)
+            return msg
+        } catch (e: java.net.ConnectException) {
+            val msg = "Error de conexión al servidor: ${archivo.name}"
+            Log.e(TAG, msg, e)
+            return msg
         } catch (e: Exception) {
-            Log.e(TAG, "Error enviando archivo a Telegram", e)
-            return e.toString()
+            val msg = "Error inesperado enviando archivo ${archivo.name}: ${e.message}"
+            Log.e(TAG, msg, e)
+            return msg
         }
     }
 } 

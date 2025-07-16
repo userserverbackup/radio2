@@ -80,6 +80,7 @@
         <activity android:name=".EstadoActivity" />
         <activity android:name=".BackupManualSelectivoActivity" />
         <activity android:name=".LogsActivity" />
+        <activity android:name=".BackupProgressActivity" />
     </application>
 
 </manifest>

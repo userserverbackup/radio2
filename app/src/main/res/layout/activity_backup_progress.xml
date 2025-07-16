@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:padding="24dp"
+    android:background="@android:color/black">
+
+    <!-- Título -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Backup en Progreso"
+        style="@style/TextTitle"
+        android:layout_marginBottom="32dp" />
+
+    <!-- Icono de progreso -->
+    <ImageView
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:src="@drawable/ic_logo_backup"
+        android:layout_marginBottom="24dp"
+        android:contentDescription="Icono de backup" />
+
+    <!-- Estado actual -->
+    <TextView
+        android:id="@+id/txtEstadoActual"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Iniciando backup..."
+        style="@style/TextStatus"
+        android:layout_marginBottom="16dp"
+        android:gravity="center" />
+
+    <!-- Fase actual -->
+    <TextView
+        android:id="@+id/txtFaseActual"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Fase: Escaneando archivos..."
+        style="@style/TextStatus"
+        android:layout_marginBottom="24dp"
+        android:gravity="center" />
+
+    <!-- Barra de progreso principal -->
+    <ProgressBar
+        android:id="@+id/progressBarPrincipal"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:progressTint="@android:color/holo_blue_light"
+        android:progressBackgroundTint="@android:color/darker_gray" />
+
+    <!-- Texto de progreso principal -->
+    <TextView
+        android:id="@+id/txtProgresoPrincipal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0 / 0 archivos"
+        style="@style/TextStatus"
+        android:layout_marginBottom="24dp" />
+
+    <!-- Barra de progreso del archivo actual -->
+    <ProgressBar
+        android:id="@+id/progressBarArchivo"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:progressTint="@android:color/holo_green_light"
+        android:progressBackgroundTint="@android:color/darker_gray" />
+
+    <!-- Texto del archivo actual -->
+    <TextView
+        android:id="@+id/txtArchivoActual"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Archivo: -"
+        style="@style/TextStatus"
+        android:layout_marginBottom="32dp"
+        android:gravity="center"
+        android:maxLines="2"
+        android:ellipsize="middle" />
+
+    <!-- Estadísticas -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="32dp">
+
+        <TextView
+            android:id="@+id/txtEnviados"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Enviados: 0"
+            style="@style/TextStatus"
+            android:gravity="center" />
+
+        <TextView
+            android:id="@+id/txtErrores"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Errores: 0"
+            style="@style/TextStatus"
+            android:gravity="center" />
+
+    </LinearLayout>
+
+    <!-- Botón cancelar -->
+    <Button
+        android:id="@+id/btnCancelar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Cancelar Backup"
+        style="@style/ButtonSecondary" />
+
+</LinearLayout> 

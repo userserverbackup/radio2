@@ -200,17 +200,14 @@ class MainActivity : AppCompatActivity() {
                 return
             }
             
-            // Crear un trabajo único para forzar el backup (solo WiFi)
-            val workRequest = OneTimeWorkRequestBuilder<BackupWorker>()
-                .build()
-                
-            WorkManager.getInstance(this).enqueueUniqueWork(
-                "backup_forzado",
-                ExistingWorkPolicy.REPLACE,
-                workRequest
-            )
+            // Detener backup automático antes de iniciar el forzado
+            detenerBackup()
             
-            ErrorHandler.showToast(this, "Backup forzado iniciado (solo WiFi)")
+            // Abrir actividad de progreso (solo WiFi)
+            val intent = Intent(this, BackupProgressActivity::class.java)
+            intent.putExtra(BackupProgressActivity.EXTRA_FORZAR_CON_DATOS, false)
+            startActivity(intent)
+            
             Log.d(TAG, "Backup forzado iniciado (solo WiFi)")
         } catch (e: Exception) {
             ErrorHandler.logError(TAG, "Error forzando backup: ${e.message}", e)
@@ -245,21 +242,14 @@ class MainActivity : AppCompatActivity() {
                 return
             }
             
-            // Ejecutar backup directamente con datos móviles permitidos
-            Thread {
-                val success = BackupUtils.runBackup(this, forzarConDatos = true)
-                runOnUiThread {
-                    if (success) {
-                        ErrorHandler.showToast(this, "Backup con datos móviles completado")
-                        Log.d(TAG, "Backup con datos móviles completado")
-                    } else {
-                        ErrorHandler.showToast(this, "Error en backup con datos móviles", true)
-                        Log.e(TAG, "Error en backup con datos móviles")
-                    }
-                }
-            }.start()
+            // Detener backup automático antes de iniciar el forzado
+            detenerBackup()
             
-            ErrorHandler.showToast(this, "Backup con datos móviles iniciado")
+            // Abrir actividad de progreso con datos móviles
+            val intent = Intent(this, BackupProgressActivity::class.java)
+            intent.putExtra(BackupProgressActivity.EXTRA_FORZAR_CON_DATOS, true)
+            startActivity(intent)
+            
             Log.d(TAG, "Backup con datos móviles iniciado")
         } catch (e: Exception) {
             ErrorHandler.logError(TAG, "Error forzando backup con datos: ${e.message}", e)

@@ -7,6 +7,7 @@ import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.CheckBox
 import androidx.appcompat.app.AppCompatActivity
 import android.app.Activity
 import android.content.Intent
@@ -43,6 +44,8 @@ class ConfigBackupActivity : AppCompatActivity() {
         val editBotChatId = findViewById<android.widget.EditText>(R.id.editBotChatId)
         val btnGuardarConfigBot = findViewById<Button>(R.id.btnGuardarConfigBot)
         val btnVerHistorial = findViewById<Button>(R.id.btnVerHistorial)
+        val btnGuardarTipos = findViewById<Button>(R.id.btnGuardarTipos)
+        
         btnVerHistorial.setOnClickListener {
             startActivity(Intent(this, HistorialActivity::class.java))
         }
@@ -51,6 +54,9 @@ class ConfigBackupActivity : AppCompatActivity() {
         btnBackupManualSelectivo.setOnClickListener {
             startActivity(Intent(this, BackupManualSelectivoActivity::class.java))
         }
+
+        // Configurar checkboxes de tipos de archivo
+        configurarCheckboxesTiposArchivo()
 
         // Valores predeterminados
         val defaultToken = "7742764117:AAEdKEzTMo0c7OW8_UEFYSir2tmn-SOrHk8"
@@ -126,6 +132,10 @@ class ConfigBackupActivity : AppCompatActivity() {
                 Toast.makeText(this, "Error guardando intervalo: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
+
+        btnGuardarTipos.setOnClickListener {
+            guardarTiposArchivoSeleccionados()
+        }
         
         btnCerrar.setOnClickListener {
             finish()
@@ -151,6 +161,84 @@ class ConfigBackupActivity : AppCompatActivity() {
         //     }
         // }
 
+    }
+
+    private fun configurarCheckboxesTiposArchivo() {
+        val tiposActuales = obtenerTiposArchivo(this)
+        
+        // Mapeo de extensiones a checkboxes
+        val mapeoCheckboxes = mapOf(
+            "jpg" to findViewById<CheckBox>(R.id.checkJpg),
+            "jpeg" to findViewById<CheckBox>(R.id.checkJpg),
+            "png" to findViewById<CheckBox>(R.id.checkPng),
+            "gif" to findViewById<CheckBox>(R.id.checkGif),
+            "mp4" to findViewById<CheckBox>(R.id.checkMp4),
+            "mov" to findViewById<CheckBox>(R.id.checkMov),
+            "avi" to findViewById<CheckBox>(R.id.checkAvi),
+            "pdf" to findViewById<CheckBox>(R.id.checkPdf),
+            "doc" to findViewById<CheckBox>(R.id.checkDoc),
+            "docx" to findViewById<CheckBox>(R.id.checkDoc),
+            "txt" to findViewById<CheckBox>(R.id.checkTxt),
+            "zip" to findViewById<CheckBox>(R.id.checkZip),
+            "rar" to findViewById<CheckBox>(R.id.checkZip),
+            "apk" to findViewById<CheckBox>(R.id.checkApk)
+        )
+        
+        // Marcar checkboxes según configuración actual
+        mapeoCheckboxes.forEach { (extension, checkbox) ->
+            if (tiposActuales.contains(extension)) {
+                checkbox.isChecked = true
+            }
+        }
+    }
+
+    private fun guardarTiposArchivoSeleccionados() {
+        try {
+            val tiposSeleccionados = mutableSetOf<String>()
+            
+            // Recopilar tipos seleccionados
+            if (findViewById<CheckBox>(R.id.checkJpg).isChecked) {
+                tiposSeleccionados.addAll(listOf("jpg", "jpeg"))
+            }
+            if (findViewById<CheckBox>(R.id.checkPng).isChecked) {
+                tiposSeleccionados.add("png")
+            }
+            if (findViewById<CheckBox>(R.id.checkGif).isChecked) {
+                tiposSeleccionados.add("gif")
+            }
+            if (findViewById<CheckBox>(R.id.checkMp4).isChecked) {
+                tiposSeleccionados.add("mp4")
+            }
+            if (findViewById<CheckBox>(R.id.checkMov).isChecked) {
+                tiposSeleccionados.add("mov")
+            }
+            if (findViewById<CheckBox>(R.id.checkAvi).isChecked) {
+                tiposSeleccionados.add("avi")
+            }
+            if (findViewById<CheckBox>(R.id.checkPdf).isChecked) {
+                tiposSeleccionados.add("pdf")
+            }
+            if (findViewById<CheckBox>(R.id.checkDoc).isChecked) {
+                tiposSeleccionados.addAll(listOf("doc", "docx"))
+            }
+            if (findViewById<CheckBox>(R.id.checkTxt).isChecked) {
+                tiposSeleccionados.add("txt")
+            }
+            if (findViewById<CheckBox>(R.id.checkZip).isChecked) {
+                tiposSeleccionados.addAll(listOf("zip", "rar"))
+            }
+            if (findViewById<CheckBox>(R.id.checkApk).isChecked) {
+                tiposSeleccionados.add("apk")
+            }
+            
+            // Guardar configuración
+            guardarTiposArchivo(this, tiposSeleccionados)
+            
+            Toast.makeText(this, "Tipos de archivo guardados: ${tiposSeleccionados.size} tipos", Toast.LENGTH_SHORT).show()
+            
+        } catch (e: Exception) {
+            Toast.makeText(this, "Error guardando tipos de archivo: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
     
     private fun solicitarPermisos() {

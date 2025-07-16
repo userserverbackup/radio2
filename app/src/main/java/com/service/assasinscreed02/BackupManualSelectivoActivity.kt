@@ -54,9 +54,16 @@ class BackupManualSelectivoActivity : AppCompatActivity() {
 
         btnBackup.setOnClickListener {
             tiposSeleccionados.clear()
-            if (chkImagenes.isChecked) tiposSeleccionados.addAll(listOf("jpg", "jpeg", "png"))
-            if (chkVideos.isChecked) tiposSeleccionados.addAll(listOf("mp4", "mov", "avi"))
-            if (chkOtros.isChecked) tiposSeleccionados.addAll(listOf("pdf", "docx", "txt"))
+            // Usar configuración personalizada si está disponible, sino usar valores por defecto
+            val tiposConfigurados = obtenerTiposArchivo(this)
+            if (tiposConfigurados.isNotEmpty()) {
+                tiposSeleccionados.addAll(tiposConfigurados)
+            } else {
+                // Valores por defecto si no hay configuración
+                if (chkImagenes.isChecked) tiposSeleccionados.addAll(listOf("jpg", "jpeg", "png"))
+                if (chkVideos.isChecked) tiposSeleccionados.addAll(listOf("mp4", "mov", "avi"))
+                if (chkOtros.isChecked) tiposSeleccionados.addAll(listOf("pdf", "docx", "txt"))
+            }
             if (tiposSeleccionados.isEmpty() || carpetasSeleccionadas.isEmpty()) {
                 Toast.makeText(this, "Selecciona al menos un tipo y una carpeta", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener

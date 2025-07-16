@@ -20,7 +20,7 @@
             style="@style/TextTitle"
             android:layout_marginBottom="32dp" />
 
-        <!-- Tarjeta de configuración -->
+        <!-- Tarjeta de configuración de intervalo -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -91,6 +91,213 @@
                     android:text="Cerrar"
                     style="@style/ButtonSecondary"
                     android:layout_marginTop="8dp" />
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Tarjeta de configuración de tipos de archivo -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            style="@style/CardStyle"
+            android:layout_marginBottom="24dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Tipos de Archivo"
+                    android:textColor="@color/text_primary_dark"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="16dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Selecciona qué tipos de archivo incluir en el backup:"
+                    android:textColor="@color/text_secondary_dark"
+                    android:textSize="14sp"
+                    android:layout_marginBottom="16dp" />
+
+                <!-- Imágenes -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Imágenes:"
+                    android:textColor="@color/text_primary_dark"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="12dp">
+
+                    <CheckBox
+                        android:id="@+id/checkJpg"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="JPG/JPEG"
+                        android:textColor="@color/text_primary_dark"
+                        android:padding="8dp" />
+
+                    <CheckBox
+                        android:id="@+id/checkPng"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="PNG"
+                        android:textColor="@color/text_primary_dark"
+                        android:padding="8dp" />
+
+                    <CheckBox
+                        android:id="@+id/checkGif"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="GIF"
+                        android:textColor="@color/text_primary_dark"
+                        android:padding="8dp" />
+                </LinearLayout>
+
+                <!-- Videos -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Videos:"
+                    android:textColor="@color/text_primary_dark"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="12dp">
+
+                    <CheckBox
+                        android:id="@+id/checkMp4"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="MP4"
+                        android:textColor="@color/text_primary_dark"
+                        android:padding="8dp" />
+
+                    <CheckBox
+                        android:id="@+id/checkMov"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="MOV"
+                        android:textColor="@color/text_primary_dark"
+                        android:padding="8dp" />
+
+                    <CheckBox
+                        android:id="@+id/checkAvi"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="AVI"
+                        android:textColor="@color/text_primary_dark"
+                        android:padding="8dp" />
+                </LinearLayout>
+
+                <!-- Documentos -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Documentos:"
+                    android:textColor="@color/text_primary_dark"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="12dp">
+
+                    <CheckBox
+                        android:id="@+id/checkPdf"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="PDF"
+                        android:textColor="@color/text_primary_dark"
+                        android:padding="8dp" />
+
+                    <CheckBox
+                        android:id="@+id/checkDoc"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="DOC/DOCX"
+                        android:textColor="@color/text_primary_dark"
+                        android:padding="8dp" />
+
+                    <CheckBox
+                        android:id="@+id/checkTxt"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="TXT"
+                        android:textColor="@color/text_primary_dark"
+                        android:padding="8dp" />
+                </LinearLayout>
+
+                <!-- Otros -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Otros:"
+                    android:textColor="@color/text_primary_dark"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="16dp">
+
+                    <CheckBox
+                        android:id="@+id/checkZip"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="ZIP/RAR"
+                        android:textColor="@color/text_primary_dark"
+                        android:padding="8dp" />
+
+                    <CheckBox
+                        android:id="@+id/checkApk"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="APK"
+                        android:textColor="@color/text_primary_dark"
+                        android:padding="8dp" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btnGuardarTipos"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Guardar Tipos de Archivo"
+                    style="@style/ButtonPrimary" />
 
             </LinearLayout>
         </androidx.cardview.widget.CardView>

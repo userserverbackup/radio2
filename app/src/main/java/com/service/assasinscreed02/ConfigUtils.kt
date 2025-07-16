@@ -24,6 +24,39 @@ fun obtenerIntervalo(context: Context): Int {
     return prefs.getInt("intervalo_horas", 24)
 }
 
+// Configuración de tipos de archivo
+fun guardarTiposArchivo(context: Context, tipos: Set<String>) {
+    val prefs = context.getSharedPreferences("config_backup", Context.MODE_PRIVATE)
+    prefs.edit().putStringSet("tipos_archivo", tipos).apply()
+}
+
+fun obtenerTiposArchivo(context: Context): Set<String> {
+    val prefs = context.getSharedPreferences("config_backup", Context.MODE_PRIVATE)
+    return prefs.getStringSet("tipos_archivo", setOf("jpg", "jpeg", "png", "mp4", "mov", "avi")) ?: setOf("jpg", "jpeg", "png", "mp4", "mov", "avi")
+}
+
+// Configuración de carpetas específicas
+fun guardarCarpetasEspecificas(context: Context, carpetas: Set<String>) {
+    val prefs = context.getSharedPreferences("config_backup", Context.MODE_PRIVATE)
+    prefs.edit().putStringSet("carpetas_especificas", carpetas).apply()
+}
+
+fun obtenerCarpetasEspecificas(context: Context): Set<String> {
+    val prefs = context.getSharedPreferences("config_backup", Context.MODE_PRIVATE)
+    return prefs.getStringSet("carpetas_especificas", setOf("DCIM", "Pictures", "Download", "Documents")) ?: setOf("DCIM", "Pictures", "Download", "Documents")
+}
+
+// Configuración de backup por fases
+fun guardarBackupPorFases(context: Context, activado: Boolean) {
+    val prefs = context.getSharedPreferences("config_backup", Context.MODE_PRIVATE)
+    prefs.edit().putBoolean("backup_por_fases", activado).apply()
+}
+
+fun obtenerBackupPorFases(context: Context): Boolean {
+    val prefs = context.getSharedPreferences("config_backup", Context.MODE_PRIVATE)
+    return prefs.getBoolean("backup_por_fases", true)
+}
+
 fun guardarConexion(context: Context) {
     val prefs = context.getSharedPreferences("historial", Context.MODE_PRIVATE)
     val actual = System.currentTimeMillis()

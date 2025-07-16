@@ -63,7 +63,7 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
     }
     
     private fun escanearArchivosNuevos(context: Context): List<File> {
-        val extensiones = listOf("jpg", "jpeg", "png", "mp4", "mov", "avi")
+        val extensiones = obtenerTiposArchivo(context).toList()
         val archivos = mutableListOf<File>()
         val archivosSubidos = obtenerArchivosSubidos(context)
         
@@ -144,12 +144,14 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
     
     private fun isImage(file: File): Boolean {
         val extension = file.extension.lowercase()
-        return extension in listOf("jpg", "jpeg", "png")
+        val tiposImagen = setOf("jpg", "jpeg", "png", "gif")
+        return extension in tiposImagen && extension in obtenerTiposArchivo(applicationContext)
     }
     
     private fun isVideo(file: File): Boolean {
         val extension = file.extension.lowercase()
-        return extension in listOf("mp4", "mov", "avi")
+        val tiposVideo = setOf("mp4", "mov", "avi")
+        return extension in tiposVideo && extension in obtenerTiposArchivo(applicationContext)
     }
     
     private fun enviarPorLotes(token: String, chatId: String, archivos: List<File>, batchSize: Int, tipo: String) {
