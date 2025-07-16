@@ -70,6 +70,7 @@ class MainActivity : AppCompatActivity() {
         val btnConfigBot = findViewById<Button>(R.id.btnConfigBot)
         val btnConfigBackup = findViewById<Button>(R.id.btnConfigBackup)
         val btnForzarBackup = findViewById<Button>(R.id.btnForzarBackup)
+        val btnForzarBackupDatos = findViewById<Button>(R.id.btnForzarBackupDatos)
         val btnVerEstado = findViewById<Button>(R.id.btnVerEstado)
         // Nuevo botón para logs
         val btnVerLogs = findViewById<Button>(R.id.btnVerLogs)
@@ -107,6 +108,15 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 Log.e(TAG, "Error forzando backup: ${e.message}")
                 Toast.makeText(this, "Error forzando backup: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+
+        btnForzarBackupDatos.setOnClickListener {
+            try {
+                mostrarDialogoAdvertenciaDatos()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error mostrando diálogo de advertencia: ${e.message}")
+                Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
 
@@ -190,7 +200,7 @@ class MainActivity : AppCompatActivity() {
                 return
             }
             
-            // Crear un trabajo único para forzar el backup
+            // Crear un trabajo único para forzar el backup (solo WiFi)
             val workRequest = OneTimeWorkRequestBuilder<BackupWorker>()
                 .build()
                 
@@ -200,11 +210,60 @@ class MainActivity : AppCompatActivity() {
                 workRequest
             )
             
-            ErrorHandler.showToast(this, "Backup forzado iniciado")
-            Log.d(TAG, "Backup forzado iniciado")
+            ErrorHandler.showToast(this, "Backup forzado iniciado (solo WiFi)")
+            Log.d(TAG, "Backup forzado iniciado (solo WiFi)")
         } catch (e: Exception) {
             ErrorHandler.logError(TAG, "Error forzando backup: ${e.message}", e)
             ErrorHandler.showToast(this, "Error forzando backup: ${e.message}", true)
+        }
+    }
+
+    private fun mostrarDialogoAdvertenciaDatos() {
+        AlertDialog.Builder(this)
+            .setTitle("⚠️ Advertencia - Uso de Datos Móviles")
+            .setMessage("Estás a punto de realizar un backup usando datos móviles.\n\n" +
+                       "⚠️ Esto puede consumir una gran cantidad de datos de tu plan.\n" +
+                       "⚠️ Se recomienda usar WiFi para backups.\n\n" +
+                       "¿Estás seguro de que quieres continuar?")
+            .setPositiveButton("Sí, usar datos móviles") { _, _ ->
+                forzarBackupConDatos()
+            }
+            .setNegativeButton("Cancelar", null)
+            .setIcon(android.R.drawable.ic_dialog_alert)
+            .show()
+    }
+
+    private fun forzarBackupConDatos() {
+        try {
+            if (!ErrorHandler.validateConfig(this)) {
+                ErrorHandler.showToast(this, "Configura el bot de Telegram primero", true)
+                return
+            }
+            
+            if (!ErrorHandler.validatePermissions(this)) {
+                ErrorHandler.showToast(this, "Otorga permisos de almacenamiento primero", true)
+                return
+            }
+            
+            // Ejecutar backup directamente con datos móviles permitidos
+            Thread {
+                val success = BackupUtils.runBackup(this, forzarConDatos = true)
+                runOnUiThread {
+                    if (success) {
+                        ErrorHandler.showToast(this, "Backup con datos móviles completado")
+                        Log.d(TAG, "Backup con datos móviles completado")
+                    } else {
+                        ErrorHandler.showToast(this, "Error en backup con datos móviles", true)
+                        Log.e(TAG, "Error en backup con datos móviles")
+                    }
+                }
+            }.start()
+            
+            ErrorHandler.showToast(this, "Backup con datos móviles iniciado")
+            Log.d(TAG, "Backup con datos móviles iniciado")
+        } catch (e: Exception) {
+            ErrorHandler.logError(TAG, "Error forzando backup con datos: ${e.message}", e)
+            ErrorHandler.showToast(this, "Error forzando backup con datos: ${e.message}", true)
         }
     }
     

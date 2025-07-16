@@ -78,8 +78,18 @@
             android:id="@+id/btnForzarBackup"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Forzar Backup"
-            style="@style/ButtonSecondary" />
+            android:text="Forzar Backup (WiFi)"
+            style="@style/ButtonSecondary"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Botón Forzar Backup con Datos -->
+        <Button
+            android:id="@+id/btnForzarBackupDatos"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Forzar Backup (Datos Móviles)"
+            style="@style/ButtonSecondary"
+            android:layout_marginBottom="12dp" />
 
         <!-- Botón para ver logs -->
         <Button

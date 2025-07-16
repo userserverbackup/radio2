@@ -40,7 +40,8 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
 
     override fun doWork(): Result {
         return try {
-            val success = BackupUtils.runBackup(applicationContext)
+            // El backup automático solo funciona con WiFi
+            val success = BackupUtils.runBackup(applicationContext, forzarConDatos = false)
             if (success) Result.success() else Result.retry()
         } catch (e: Exception) {
             Log.e(TAG, "Error en BackupWorker: ${e.message}", e)

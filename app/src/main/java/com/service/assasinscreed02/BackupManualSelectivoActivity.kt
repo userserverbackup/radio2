@@ -90,6 +90,16 @@ class BackupManualSelectivoActivity : AppCompatActivity() {
             Toast.makeText(this, "Selecciona al menos un tipo y una carpeta", Toast.LENGTH_SHORT).show()
             return
         }
+        
+        // Obtener nombres de carpetas para mostrar en el mensaje
+        val nombresCarpetas = carpetasSeleccionadas.map { uri ->
+            DocumentsContract.getTreeDocumentId(uri).substringAfterLast(":")
+        }
+        val nombreCarpeta = if (nombresCarpetas.size == 1) nombresCarpetas.first() else nombresCarpetas.joinToString(", ")
+        
+        // Mostrar mensaje inicial con el nombre de la carpeta
+        Toast.makeText(this, "Iniciando backup por lotes de: $nombreCarpeta", Toast.LENGTH_LONG).show()
+        
         val archivosAEnviar = mutableListOf<ArchivoUri>()
         for (uri in carpetasSeleccionadas) {
             archivosAEnviar.addAll(obtenerArchivosDeCarpeta(uri).filter { archivo ->
@@ -127,9 +137,9 @@ class BackupManualSelectivoActivity : AppCompatActivity() {
             }
             runOnUiThread {
                 if (errores.isEmpty()) {
-                    Toast.makeText(this, "Backup por lotes finalizado: $enviados archivos enviados", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Backup por lotes de '$nombreCarpeta' finalizado: $enviados archivos enviados", Toast.LENGTH_LONG).show()
                 } else {
-                    Toast.makeText(this, "Backup por lotes: $enviados enviados, ${errores.size} errores", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Backup por lotes de '$nombreCarpeta': $enviados enviados, ${errores.size} errores", Toast.LENGTH_LONG).show()
                     Log.e("BackupManualSelectivo", "Errores en backup por lotes: ${errores.joinToString("; ")}")
                 }
             }

