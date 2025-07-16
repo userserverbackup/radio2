@@ -74,6 +74,7 @@ class MainActivity : AppCompatActivity() {
         val btnConfigBot = findViewById<Button>(R.id.btnConfigBot)
         val btnConfigBackup = findViewById<Button>(R.id.btnConfigBackup)
         val btnForzarBackup = findViewById<Button>(R.id.btnForzarBackup)
+        val btnVerEstado = findViewById<Button>(R.id.btnVerEstado)
 
         btnConfigBot.setOnClickListener {
             try {
@@ -109,6 +110,10 @@ class MainActivity : AppCompatActivity() {
                 Log.e(TAG, "Error forzando backup: ${e.message}")
                 Toast.makeText(this, "Error forzando backup: ${e.message}", Toast.LENGTH_LONG).show()
             }
+        }
+
+        btnVerEstado.setOnClickListener {
+            startActivity(Intent(this, EstadoActivity::class.java))
         }
     }
     

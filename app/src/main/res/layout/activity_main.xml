@@ -47,6 +47,14 @@
             style="@style/TextStatus"
             android:layout_marginBottom="16dp" />
 
+        <Button
+            android:id="@+id/btnVerEstado"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Estado"
+            style="@style/ButtonSecondary"
+            android:layout_marginBottom="16dp" />
+
         <TextView
             android:id="@+id/txtHistorialTitulo"
             android:layout_width="wrap_content"
