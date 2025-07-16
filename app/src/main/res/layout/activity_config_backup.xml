@@ -165,5 +165,13 @@
             style="@style/ButtonSecondary"
             android:layout_marginTop="16dp" />
 
+        <Button
+            android:id="@+id/btnBackupManualSelectivo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Backup manual selectivo"
+            style="@style/ButtonPrimary"
+            android:layout_marginTop="16dp" />
+
     </LinearLayout>
 </ScrollView> 

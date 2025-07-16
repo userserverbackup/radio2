@@ -71,12 +71,14 @@ class MainActivity : AppCompatActivity() {
         val btnConfigBackup = findViewById<Button>(R.id.btnConfigBackup)
         val btnForzarBackup = findViewById<Button>(R.id.btnForzarBackup)
         val btnVerEstado = findViewById<Button>(R.id.btnVerEstado)
+        // Nuevo botón para logs
+        val btnVerLogs = findViewById<Button>(R.id.btnVerLogs)
 
         btnConfigBot.setOnClickListener {
             try {
                 startActivity(Intent(this, ConfigBotActivity::class.java))
             } catch (e: Exception) {
-                Log.e(TAG, "Error abriendo ConfigBotActivity: ${e.message}")
+                Log.e(TAG, "Error abriendo ConfigBotActivity: "+e.message)
                 Toast.makeText(this, "Error abriendo configuración del bot", Toast.LENGTH_SHORT).show()
             }
         }
@@ -110,6 +112,14 @@ class MainActivity : AppCompatActivity() {
 
         btnVerEstado.setOnClickListener {
             startActivity(Intent(this, EstadoActivity::class.java))
+        }
+        btnVerLogs.setOnClickListener {
+            try {
+                startActivity(Intent(this, LogsActivity::class.java))
+            } catch (e: Exception) {
+                Log.e(TAG, "Error abriendo LogsActivity: "+e.message)
+                Toast.makeText(this, "Error abriendo logs", Toast.LENGTH_SHORT).show()
+            }
         }
     }
     
@@ -230,6 +240,12 @@ class MainActivity : AppCompatActivity() {
             }
             if (faltan) {
                 ActivityCompat.requestPermissions(this, permisos, PERMISSION_REQUEST_CODE)
+            }
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val notiPerm = Manifest.permission.POST_NOTIFICATIONS
+            if (ContextCompat.checkSelfPermission(this, notiPerm) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(notiPerm), PERMISSION_REQUEST_CODE)
             }
         }
     }

@@ -78,6 +78,8 @@
 
         <activity android:name=".HistorialActivity" />
         <activity android:name=".EstadoActivity" />
+        <activity android:name=".BackupManualSelectivoActivity" />
+        <activity android:name=".LogsActivity" />
     </application>
 
 </manifest>

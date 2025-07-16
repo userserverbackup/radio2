@@ -47,6 +47,11 @@ class ConfigBackupActivity : AppCompatActivity() {
             startActivity(Intent(this, HistorialActivity::class.java))
         }
 
+        val btnBackupManualSelectivo = findViewById<Button>(R.id.btnBackupManualSelectivo)
+        btnBackupManualSelectivo.setOnClickListener {
+            startActivity(Intent(this, BackupManualSelectivoActivity::class.java))
+        }
+
         // Valores predeterminados
         val defaultToken = "7742764117:AAEdKEzTMo0c7OW8_UEFYSir2tmn-SOrHk8"
         val defaultChatId = "-1002609637326"
@@ -158,6 +163,7 @@ class ConfigBackupActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permisos.add(Manifest.permission.READ_MEDIA_IMAGES)
             permisos.add(Manifest.permission.READ_MEDIA_VIDEO)
+            permisos.add(Manifest.permission.POST_NOTIFICATIONS)
         }
         if (Build.VERSION.SDK_INT >= 34) {
             permisos.add("android.permission.FOREGROUND_SERVICE_DATA_SYNC")

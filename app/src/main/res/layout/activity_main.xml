@@ -81,5 +81,14 @@
             android:text="Forzar Backup"
             style="@style/ButtonSecondary" />
 
+        <!-- Botón para ver logs -->
+        <Button
+            android:id="@+id/btnVerLogs"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Ver logs"
+            style="@style/ButtonSecondary"
+            android:layout_marginTop="12dp" />
+
     </LinearLayout>
 </ScrollView> 

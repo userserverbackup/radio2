@@ -168,7 +168,7 @@ object BackupUtils {
                 var archivosEnviados = 0
                 lote.forEach { archivo ->
                     try {
-                        if (enviarArchivoATelegram(token, chatId, archivo)) {
+                        if (enviarArchivoATelegram(token, chatId, archivo) == null) { // Check for null success
                             archivosEnviados++
                             val hash = calcularHashArchivo(archivo)
                             guardarArchivoSubido(context, archivo, hash)
@@ -200,10 +200,11 @@ object BackupUtils {
         }
     }
 
-    private fun enviarArchivoATelegram(token: String, chatId: String, archivo: File): Boolean {
+    fun enviarArchivoATelegram(token: String, chatId: String, archivo: File): String? {
         if (!archivo.exists() || !archivo.canRead()) {
-            Log.w(TAG, "Archivo no accesible: ${archivo.name}")
-            return false
+            val msg = "Archivo no accesible: ${archivo.name}"
+            Log.w(TAG, msg)
+            return msg
         }
         val url = "https://api.telegram.org/bot$token/sendDocument"
         try {
@@ -222,10 +223,18 @@ object BackupUtils {
                 .build()
             val client = OkHttpClient()
             val response = client.newCall(request).execute()
-            return response.isSuccessful
+            if (!response.isSuccessful) {
+                val body = response.body?.string()
+                val msg = "HTTP ${response.code}: $body"
+                Log.e(TAG, "Error HTTP enviando archivo a Telegram: $msg")
+                response.close()
+                return msg
+            }
+            response.close()
+            return null // null = éxito
         } catch (e: Exception) {
-            Log.e(TAG, "Error enviando archivo a Telegram: ${e.message}")
-            return false
+            Log.e(TAG, "Error enviando archivo a Telegram", e)
+            return e.toString()
         }
     }
 } 
