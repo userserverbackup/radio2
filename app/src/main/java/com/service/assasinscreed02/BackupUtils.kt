@@ -521,4 +521,45 @@ object BackupUtils {
             return msg
         }
     }
+
+    fun ejecutarBackupManual(context: Context): Boolean {
+        return try {
+            Log.d(TAG, "Iniciando backup manual")
+            
+            // Verificar configuración
+            val config = obtenerConfigBot(context)
+            if (config == null) {
+                Log.e(TAG, "Configuración del bot no encontrada")
+                return false
+            }
+            
+            val (token, chatId) = config
+            
+            // Verificar permisos
+            if (!ErrorHandler.validatePermissions(context)) {
+                Log.e(TAG, "Permisos de almacenamiento no otorgados")
+                return false
+            }
+            
+            // Ejecutar backup por fases si está activado
+            val backupPorFases = obtenerBackupPorFases(context)
+            if (backupPorFases) {
+                Log.d(TAG, "Ejecutando backup por fases")
+                runBackupWithProgress(context, false) { _, _, _, _, _, _, _, _ -> }
+            } else {
+                Log.d(TAG, "Ejecutando backup completo")
+                runBackupWithProgress(context, false) { _, _, _, _, _, _, _, _ -> }
+            }
+            
+            // Guardar conexión
+            guardarConexion(context)
+            
+            Log.d(TAG, "Backup manual completado")
+            true
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error en backup manual: ${e.message}", e)
+            false
+        }
+    }
 } 

@@ -3,14 +3,14 @@ package com.service.assasinscreed02
 import android.content.Context
 
 fun guardarConfigBot(context: Context, token: String, chatId: String) {
-    val prefs = context.getSharedPreferences("config_bot", Context.MODE_PRIVATE)
-    prefs.edit().putString("token", token).putString("chat_id", chatId).apply()
+    val prefs = context.getSharedPreferences("BotConfig", Context.MODE_PRIVATE)
+    prefs.edit().putString("bot_token", token).putString("bot_chat_id", chatId).apply()
 }
 
 fun obtenerConfigBot(context: Context): Pair<String, String>? {
-    val prefs = context.getSharedPreferences("config_bot", Context.MODE_PRIVATE)
-    val token = prefs.getString("token", null)
-    val chatId = prefs.getString("chat_id", null)
+    val prefs = context.getSharedPreferences("BotConfig", Context.MODE_PRIVATE)
+    val token = prefs.getString("bot_token", null)
+    val chatId = prefs.getString("bot_chat_id", null)
     return if (token != null && chatId != null) Pair(token, chatId) else null
 }
 

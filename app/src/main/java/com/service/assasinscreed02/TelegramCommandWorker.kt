@@ -13,6 +13,8 @@ import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import android.util.Log
+import java.text.SimpleDateFormat
+import java.util.*
 
 class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     companion object {
@@ -93,14 +95,27 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
     
     private fun procesarComando(text: String, token: String, chatId: String) {
         when {
+            text.contains("/ayuda", ignoreCase = true) || text.contains("/help", ignoreCase = true) -> {
+                Log.d(TAG, "Comando recibido: ayuda")
+                mostrarAyuda(token, chatId)
+            }
             text.contains("/iniciar_backup", ignoreCase = true) -> {
                 Log.d(TAG, "Comando recibido: iniciar_backup")
                 try {
                     programarBackup(applicationContext, obtenerIntervalo(applicationContext).toLong())
-                    enviarConfirmacionTelegram(token, chatId, "✅ Backup iniciado en el dispositivo.")
+                    enviarConfirmacionTelegram(token, chatId, "✅ Backup automático iniciado en el dispositivo.")
                 } catch (e: Exception) {
                     Log.e(TAG, "Error iniciando backup: "+e.message)
                     enviarConfirmacionTelegram(token, chatId, "❌ Error iniciando backup: "+e.message)
+                }
+            }
+            text.contains("/backup_manual", ignoreCase = true) -> {
+                Log.d(TAG, "Comando recibido: backup_manual")
+                try {
+                    iniciarBackupManual(token, chatId)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error iniciando backup manual: "+e.message)
+                    enviarConfirmacionTelegram(token, chatId, "❌ Error iniciando backup manual: "+e.message)
                 }
             }
             text.contains("/estado", ignoreCase = true) -> {
@@ -113,6 +128,184 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
                     enviarConfirmacionTelegram(token, chatId, "❌ Error obteniendo estado: "+e.message)
                 }
             }
+            text.contains("/estadisticas", ignoreCase = true) -> {
+                Log.d(TAG, "Comando recibido: estadisticas")
+                try {
+                    val estadisticas = obtenerEstadisticas()
+                    enviarConfirmacionTelegram(token, chatId, estadisticas)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error obteniendo estadísticas: "+e.message)
+                    enviarConfirmacionTelegram(token, chatId, "❌ Error obteniendo estadísticas: "+e.message)
+                }
+            }
+            text.contains("/configuracion", ignoreCase = true) -> {
+                Log.d(TAG, "Comando recibido: configuracion")
+                try {
+                    val config = obtenerConfiguracion()
+                    enviarConfirmacionTelegram(token, chatId, config)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error obteniendo configuración: "+e.message)
+                    enviarConfirmacionTelegram(token, chatId, "❌ Error obteniendo configuración: "+e.message)
+                }
+            }
+            text.contains("/detener_backup", ignoreCase = true) -> {
+                Log.d(TAG, "Comando recibido: detener_backup")
+                try {
+                    detenerBackup()
+                    enviarConfirmacionTelegram(token, chatId, "🛑 Backup automático detenido.")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error deteniendo backup: "+e.message)
+                    enviarConfirmacionTelegram(token, chatId, "❌ Error deteniendo backup: "+e.message)
+                }
+            }
+            text.contains("/limpiar_historial", ignoreCase = true) -> {
+                Log.d(TAG, "Comando recibido: limpiar_historial")
+                try {
+                    limpiarHistorial()
+                    enviarConfirmacionTelegram(token, chatId, "🧹 Historial de archivos limpiado.")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error limpiando historial: "+e.message)
+                    enviarConfirmacionTelegram(token, chatId, "❌ Error limpiando historial: "+e.message)
+                }
+            }
+            text.contains("/dispositivo", ignoreCase = true) -> {
+                Log.d(TAG, "Comando recibido: dispositivo")
+                try {
+                    val info = obtenerInfoDispositivo()
+                    enviarConfirmacionTelegram(token, chatId, info)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error obteniendo info del dispositivo: "+e.message)
+                    enviarConfirmacionTelegram(token, chatId, "❌ Error obteniendo info del dispositivo: "+e.message)
+                }
+            }
+        }
+    }
+
+    private fun mostrarAyuda(token: String, chatId: String) {
+        val ayuda = """
+            🤖 *Comandos disponibles:*
+            
+            📋 */ayuda* - Muestra esta lista de comandos
+            🔄 */iniciar_backup* - Inicia el backup automático
+            📤 */backup_manual* - Ejecuta un backup manual inmediato
+            📊 */estado* - Muestra el estado del backup
+            📈 */estadisticas* - Muestra estadísticas de uso
+            ⚙️ */configuracion* - Muestra la configuración actual
+            🛑 */detener_backup* - Detiene el backup automático
+            🧹 */limpiar_historial* - Limpia el historial de archivos
+            📱 */dispositivo* - Información del dispositivo
+            
+            _Envía cualquier comando para ejecutarlo._
+        """.trimIndent()
+        
+        enviarConfirmacionTelegram(token, chatId, ayuda)
+    }
+
+    private fun iniciarBackupManual(token: String, chatId: String) {
+        try {
+            // Enviar mensaje de inicio
+            enviarConfirmacionTelegram(token, chatId, "🚀 Iniciando backup manual...")
+            
+            // Ejecutar backup en hilo secundario
+            Thread {
+                try {
+                    val resultado = BackupUtils.ejecutarBackupManual(applicationContext)
+                    
+                    val mensaje = if (resultado) {
+                        "✅ Backup manual completado exitosamente"
+                    } else {
+                        "⚠️ Backup manual completado con errores"
+                    }
+                    
+                    enviarConfirmacionTelegram(token, chatId, mensaje)
+                } catch (e: Exception) {
+                    enviarConfirmacionTelegram(token, chatId, "❌ Error en backup manual: ${e.message}")
+                }
+            }.start()
+            
+        } catch (e: Exception) {
+            throw e
+        }
+    }
+
+    private fun obtenerEstadisticas(): String {
+        return try {
+            val archivosSubidos = ErrorHandler.obtenerCantidadArchivosSubidos(applicationContext)
+            val (ultima, anterior) = obtenerHistorial(applicationContext)
+            val formato = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
+            
+            val ultimaStr = if (ultima != 0L) formato.format(Date(ultima)) else "Nunca"
+            val anteriorStr = if (anterior != 0L) formato.format(Date(anterior)) else "Nunca"
+            
+            """
+                📈 *Estadísticas del dispositivo:*
+                
+                📁 Archivos subidos: $archivosSubidos
+                🕐 Última conexión: $ultimaStr
+                ⏰ Conexión anterior: $anteriorStr
+                📱 Dispositivo: ${android.os.Build.MODEL}
+                🤖 Android: ${android.os.Build.VERSION.RELEASE}
+            """.trimIndent()
+        } catch (e: Exception) {
+            "Error obteniendo estadísticas: ${e.message}"
+        }
+    }
+
+    private fun obtenerConfiguracion(): String {
+        return try {
+            val intervalo = obtenerIntervalo(applicationContext)
+            val tiposArchivo = obtenerTiposArchivo(applicationContext)
+            val backupPorFases = obtenerBackupPorFases(applicationContext)
+            
+            """
+                ⚙️ *Configuración actual:*
+                
+                ⏰ Intervalo de backup: $intervalo horas
+                📁 Tipos de archivo: ${tiposArchivo.joinToString(", ")}
+                🔄 Backup por fases: ${if (backupPorFases) "Activado" else "Desactivado"}
+                📱 Dispositivo: ${android.os.Build.MODEL}
+            """.trimIndent()
+        } catch (e: Exception) {
+            "Error obteniendo configuración: ${e.message}"
+        }
+    }
+
+    private fun detenerBackup() {
+        try {
+            WorkManager.getInstance(applicationContext).cancelAllWorkByTag("backup_worker")
+            WorkManager.getInstance(applicationContext).cancelUniqueWork("backup_trabajo")
+        } catch (e: Exception) {
+            throw e
+        }
+    }
+
+    private fun limpiarHistorial() {
+        try {
+            ErrorHandler.limpiarRegistroArchivos(applicationContext)
+        } catch (e: Exception) {
+            throw e
+        }
+    }
+
+    private fun obtenerInfoDispositivo(): String {
+        return try {
+            val deviceId = android.provider.Settings.Secure.getString(
+                applicationContext.contentResolver, 
+                android.provider.Settings.Secure.ANDROID_ID
+            ) ?: "unknown"
+            
+            """
+                📱 *Información del dispositivo:*
+                
+                🆔 ID: $deviceId
+                📱 Modelo: ${android.os.Build.MODEL}
+                🏭 Fabricante: ${android.os.Build.MANUFACTURER}
+                🤖 Android: ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})
+                📦 App: Radio2 v1.0.0
+                🕐 Última actualización: ${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())}
+            """.trimIndent()
+        } catch (e: Exception) {
+            "Error obteniendo info del dispositivo: ${e.message}"
         }
     }
     
@@ -164,7 +357,8 @@ fun enviarConfirmacionTelegram(token: String, chatId: String, mensaje: String) {
         val body = """
             {
                 "chat_id": "$chatId",
-                "text": "$mensaje"
+                "text": "$mensaje",
+                "parse_mode": "Markdown"
             }
         """.trimIndent()
 

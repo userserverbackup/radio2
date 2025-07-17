@@ -74,10 +74,10 @@ object ErrorHandler {
     
     fun guardarConfigBot(context: Context, token: String, chatId: String) {
         try {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val prefs = context.getSharedPreferences("BotConfig", Context.MODE_PRIVATE)
             prefs.edit()
                 .putString("bot_token", token)
-                .putString("chat_id", chatId)
+                .putString("bot_chat_id", chatId)
                 .apply()
             Log.d(TAG, "Configuración del bot guardada")
         } catch (e: Exception) {
@@ -88,15 +88,15 @@ object ErrorHandler {
     
     fun obtenerConfigBot(context: Context): Pair<String?, String?> {
         return try {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val prefs = context.getSharedPreferences("BotConfig", Context.MODE_PRIVATE)
             val token = prefs.getString("bot_token", null)
-            val chatId = prefs.getString("chat_id", null)
-            val defaultToken = "7721187473:AAHcRkxt8lmoPpBAF5PBTxUYuPbTvKyEU2U"
-            val defaultChatId = "-1002407795523"
+            val chatId = prefs.getString("bot_chat_id", null)
+            val defaultToken = "7742764117:AAEdKEzTMo0c7OW8_UEFYSir2tmn-SOrHk8"
+            val defaultChatId = "-1002609637326"
             Pair(token ?: defaultToken, chatId ?: defaultChatId)
         } catch (e: Exception) {
             Log.e(TAG, "Error obteniendo configuración: ${e.message}")
-            Pair("7721187473:AAHcRkxt8lmoPpBAF5PBTxUYuPbTvKyEU2U", "-1002407795523")
+            Pair("7742764117:AAEdKEzTMo0c7OW8_UEFYSir2tmn-SOrHk8", "-1002609637326")
         }
     }
     
