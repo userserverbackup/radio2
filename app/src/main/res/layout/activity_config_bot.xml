@@ -64,7 +64,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Chat ID"
+                    android:text="Chat ID principal (privado, recibe archivos y reportes)"
                     android:textColor="@color/text_secondary_dark"
                     android:textSize="14sp"
                     android:layout_marginBottom="8dp" />
@@ -73,7 +73,27 @@
                     android:id="@+id/edtChatId"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Ingresa el ID del chat de Telegram"
+                    android:hint="Ingresa el ID del chat privado"
+                    android:inputType="text"
+                    android:textColor="@color/text_primary_dark"
+                    android:textColorHint="@color/text_hint_dark"
+                    android:background="@drawable/edit_text_background"
+                    android:padding="16dp"
+                    android:layout_marginBottom="16dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Chat ID secundario (grupo de control, solo comandos)"
+                    android:textColor="@color/text_secondary_dark"
+                    android:textSize="14sp"
+                    android:layout_marginBottom="8dp" />
+
+                <EditText
+                    android:id="@+id/edtChatIdSecundario"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Ingresa el ID del grupo de control"
                     android:inputType="text"
                     android:textColor="@color/text_primary_dark"
                     android:textColorHint="@color/text_hint_dark"

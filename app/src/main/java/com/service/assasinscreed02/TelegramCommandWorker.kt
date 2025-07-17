@@ -197,8 +197,8 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
             
             _Envía cualquier comando para ejecutarlo._
         """.trimIndent()
-        
-        enviarConfirmacionTelegram(token, chatId, ayuda)
+        val chatIdSecundario = obtenerChatIdSecundario(applicationContext)
+        enviarConfirmacionTelegram(token, chatIdSecundario ?: chatId, ayuda)
     }
 
     private fun iniciarBackupManual(token: String, chatId: String) {
@@ -352,34 +352,79 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
 }
 
 fun enviarConfirmacionTelegram(token: String, chatId: String, mensaje: String) {
-    try {
-        val url = "https://api.telegram.org/bot$token/sendMessage"
-        val body = """
-            {
-                "chat_id": "$chatId",
-                "text": "$mensaje",
-                "parse_mode": "Markdown"
+    val maxReintentos = 5
+    var intento = 1
+    var backoff = 1000L // 1 segundo
+    val maxBackoff = 60000L // 1 minuto
+    while (intento <= maxReintentos) {
+        try {
+            val url = "https://api.telegram.org/bot$token/sendMessage"
+            val body = """
+                {
+                    \"chat_id\": \"$chatId\",
+                    \"text\": \"$mensaje\",
+                    \"parse_mode\": \"Markdown\"
+                }
+            """.trimIndent()
+
+            val request = Request.Builder()
+                .url(url)
+                .post(body.toRequestBody("application/json".toMediaTypeOrNull()))
+                .build()
+
+            val client = OkHttpClient.Builder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .build()
+
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string() ?: ""
+            if (response.isSuccessful) {
+                Log.d("TelegramCommandWorker", "Mensaje enviado: $mensaje")
+                response.close()
+                break
+            } else {
+                // Manejo de error 429 (rate limit)
+                if (response.code == 429) {
+                    var retryAfter = 0L
+                    try {
+                        val json = org.json.JSONObject(responseBody)
+                        retryAfter = json.optJSONObject("parameters")?.optLong("retry_after") ?: 0L
+                    } catch (_: Exception) {}
+                    if (retryAfter > 0) {
+                        Log.w("TelegramCommandWorker", "Error 429: esperando $retryAfter segundos antes de reintentar")
+                        Thread.sleep(retryAfter * 1000)
+                    } else {
+                        Log.w("TelegramCommandWorker", "Error 429: esperando $backoff ms antes de reintentar")
+                        Thread.sleep(backoff)
+                        backoff = (backoff * 2).coerceAtMost(maxBackoff)
+                    }
+                    intento++
+                } else {
+                    Log.w("TelegramCommandWorker", "Error enviando mensaje: ${response.code} - $responseBody")
+                    response.close()
+                    break
+                }
             }
-        """.trimIndent()
-
-        val request = Request.Builder()
-            .url(url)
-            .post(body.toRequestBody("application/json".toMediaTypeOrNull()))
-            .build()
-
-        val client = OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .build()
-
-        val response = client.newCall(request).execute()
-        if (response.isSuccessful) {
-            Log.d("TelegramCommandWorker", "Mensaje enviado: $mensaje")
-        } else {
-            Log.w("TelegramCommandWorker", "Error enviando mensaje: ${response.code}")
+            response.close()
+        } catch (e: Exception) {
+            Log.e("TelegramCommandWorker", "Error enviando confirmación: ${e.message}", e)
+            try { Thread.sleep(backoff) } catch (_: Exception) {}
+            backoff = (backoff * 2).coerceAtMost(maxBackoff)
+            intento++
         }
-        response.close()
+    }
+    if (intento > maxReintentos) {
+        Log.e("TelegramCommandWorker", "No se pudo enviar el mensaje tras $maxReintentos intentos: $mensaje")
+    }
+} 
+
+// Añadir función para obtener chat_id secundario
+private fun obtenerChatIdSecundario(context: Context): String? {
+    return try {
+        val prefs = context.getSharedPreferences("BotConfig", Context.MODE_PRIVATE)
+        prefs.getString("bot_chat_id_secundario", null)
     } catch (e: Exception) {
-        Log.e("TelegramCommandWorker", "Error enviando confirmación: ${e.message}", e)
+        null
     }
 } 

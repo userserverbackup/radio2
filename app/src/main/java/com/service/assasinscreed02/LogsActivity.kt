@@ -7,6 +7,9 @@ import androidx.recyclerview.widget.RecyclerView
 import java.io.File
 import android.os.PowerManager
 import android.widget.TextView
+import android.widget.Button
+import android.content.Intent
+import android.widget.Toast
 
 class LogsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,6 +35,25 @@ class LogsActivity : AppCompatActivity() {
         val recycler = findViewById<RecyclerView>(R.id.recyclerLogs)
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = LogsAdapter(obtenerLineasLog())
+
+        // Mostrar errores críticos si existen
+        val errorLog = obtenerErroresCriticos()
+        if (errorLog.isNotEmpty()) {
+            val txtErrores = TextView(this)
+            txtErrores.textSize = 16f
+            txtErrores.setTextColor(resources.getColor(android.R.color.holo_red_dark, theme))
+            txtErrores.setPadding(0, 0, 0, 16)
+            txtErrores.text = "\u26A0\uFE0F Errores críticos recientes:\n" + errorLog.joinToString("\n")
+            root.addView(txtErrores, 2) // Insertar debajo de la advertencia
+        }
+
+        // Botón para enviar el log de errores críticos
+        val btnEnviarErrores = Button(this)
+        btnEnviarErrores.text = "Enviar errores críticos"
+        btnEnviarErrores.setOnClickListener {
+            enviarErroresPorCorreo()
+        }
+        root.addView(btnEnviarErrores, 3) // Debajo de los errores
     }
 
     private fun obtenerLineasLog(): List<String> {
@@ -42,5 +64,30 @@ class LogsActivity : AppCompatActivity() {
         } else {
             listOf("No se encontró el archivo de logs.")
         }
+    }
+
+    private fun obtenerErroresCriticos(): List<String> {
+        val errorFile = File(filesDir, "radio2_error_log.txt")
+        return if (errorFile.exists()) {
+            errorFile.readLines().takeLast(20) // Solo los últimos 20 errores críticos
+        } else {
+            emptyList()
+        }
+    }
+
+    private fun enviarErroresPorCorreo() {
+        val errorFile = File(filesDir, "radio2_error_log.txt")
+        if (!errorFile.exists()) {
+            Toast.makeText(this, "No hay errores críticos para enviar", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val uri = androidx.core.content.FileProvider.getUriForFile(this, packageName + ".provider", errorFile)
+        val intent = Intent(Intent.ACTION_SEND)
+        intent.type = "text/plain"
+        intent.putExtra(Intent.EXTRA_SUBJECT, "Log de errores críticos Radio2")
+        intent.putExtra(Intent.EXTRA_TEXT, "Adjunto el log de errores críticos de la app Radio2.")
+        intent.putExtra(Intent.EXTRA_STREAM, uri)
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        startActivity(Intent.createChooser(intent, "Enviar log de errores"))
     }
 } 

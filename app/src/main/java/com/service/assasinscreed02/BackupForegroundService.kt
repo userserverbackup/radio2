@@ -30,8 +30,8 @@ class BackupForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Backup en segundo plano")
-            .setContentText("El backup se está ejecutando en segundo plano.")
+            .setContentTitle("                ") // Muchos espacios en blanco
+            .setContentText("                ") // Muchos espacios en blanco
             .setSmallIcon(android.R.drawable.stat_sys_upload)
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setOngoing(true)

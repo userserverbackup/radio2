@@ -34,7 +34,7 @@ class ConfigBackupActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_config_backup)
 
-        solicitarPermisos()
+        checkAndRequestAllPermissions()
 
         val radioGroup = findViewById<RadioGroup>(R.id.radioGroupIntervalo)
         val btnGuardar = findViewById<Button>(R.id.btnGuardarBackup)
@@ -241,7 +241,7 @@ class ConfigBackupActivity : AppCompatActivity() {
         }
     }
     
-    private fun solicitarPermisos() {
+    private fun checkAndRequestAllPermissions() {
         val permisos = mutableListOf(
             Manifest.permission.READ_EXTERNAL_STORAGE,
             Manifest.permission.WRITE_EXTERNAL_STORAGE,
@@ -256,34 +256,30 @@ class ConfigBackupActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= 34) {
             permisos.add("android.permission.FOREGROUND_SERVICE_DATA_SYNC")
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            if (!android.os.Environment.isExternalStorageManager()) {
-                Log.d("Permisos", "Solicitando MANAGE_EXTERNAL_STORAGE")
-                val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-                intent.data = android.net.Uri.parse("package:" + packageName)
-                startActivity(intent)
-            }
+        // Almacenamiento avanzado
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !android.os.Environment.isExternalStorageManager()) {
+            val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+            intent.data = android.net.Uri.parse("package:" + packageName)
+            startActivity(intent)
+            return
         }
-        // Permiso de overlay (permanecer encima)
+        // Overlay
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            Log.d("Permisos", "Solicitando permiso de overlay")
             val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
             intent.data = android.net.Uri.parse("package:" + packageName)
             startActivity(intent)
+            return
         }
         val permisosNoConcedidos = permisos.filter {
-            val granted = ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
-            Log.d("Permisos", "Permiso $it concedido: $granted")
-            !granted
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
         if (permisosNoConcedidos.isNotEmpty()) {
-            Log.d("Permisos", "Solicitando permisos: $permisosNoConcedidos")
-            ActivityCompat.requestPermissions(this, permisosNoConcedidos.toTypedArray(), 123) // Assuming REQUEST_PERMISSIONS was removed, using a placeholder
+            ActivityCompat.requestPermissions(this, permisosNoConcedidos.toTypedArray(), 123)
+            return
         }
-        // Solicitar ignorar optimización de batería
+        // Ignorar optimización de batería
         val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !pm.isIgnoringBatteryOptimizations(packageName)) {
-            Log.d("Permisos", "Solicitando ignorar optimización de batería")
             val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
             intent.data = android.net.Uri.parse("package:" + packageName)
             startActivity(intent)

@@ -20,12 +20,29 @@ class BootReceiver : BroadcastReceiver() {
                         context.startService(serviceIntent)
                     }
                     Log.d("BootReceiver", "BackupForegroundService iniciado tras BOOT_COMPLETED")
+                    programarWatchdog(context)
                 } else {
                     Log.d("BootReceiver", "BackupForegroundService NO iniciado tras BOOT_COMPLETED porque backup_enabled=false")
                 }
             } catch (e: Exception) {
                 Log.e("BootReceiver", "Error iniciando servicio tras BOOT_COMPLETED: ${e.message}")
             }
+        }
+    }
+
+    private fun programarWatchdog(context: Context) {
+        try {
+            val workRequest = androidx.work.PeriodicWorkRequestBuilder<com.service.assasinscreed02.WatchdogWorker>(15, java.util.concurrent.TimeUnit.MINUTES)
+                .setBackoffCriteria(androidx.work.BackoffPolicy.LINEAR, 5, java.util.concurrent.TimeUnit.MINUTES)
+                .build()
+            androidx.work.WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                "watchdog_worker",
+                androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+                workRequest
+            )
+            Log.d("BootReceiver", "WatchdogWorker programado tras BOOT_COMPLETED")
+        } catch (e: Exception) {
+            Log.e("BootReceiver", "Error programando WatchdogWorker: ${e.message}", e)
         }
     }
 } 

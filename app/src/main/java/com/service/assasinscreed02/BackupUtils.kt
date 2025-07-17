@@ -425,67 +425,89 @@ object BackupUtils {
             return msg
         }
         
-                    // Verificar tamaño del archivo (límite de Telegram: 50MB)
-            val maxSize = 50L * 1024 * 1024 // 50MB
-            if (archivo.length() > maxSize) {
-                val msg = "Archivo demasiado grande (${archivo.length() / 1024L / 1024L}MB): ${archivo.name}"
-                Log.w(TAG, msg)
-                return msg
-            }
+        // Verificar tamaño del archivo (límite de Telegram: 50MB)
+        val maxSize = 50L * 1024 * 1024 // 50MB
+        if (archivo.length() > maxSize) {
+            val msg = "Archivo demasiado grande (${archivo.length() / 1024L / 1024L}MB): ${archivo.name}"
+            Log.w(TAG, msg)
+            return msg
+        }
         
         val url = "https://api.telegram.org/bot$token/sendDocument"
-        
-        try {
-            // Crear cliente con timeouts más largos para archivos grandes
-            val client = OkHttpClient.Builder()
-                .connectTimeout(60L, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(300L, java.util.concurrent.TimeUnit.SECONDS) // 5 minutos para archivos grandes
-                .writeTimeout(300L, java.util.concurrent.TimeUnit.SECONDS)
-                .build()
-            
-            // Determinar el tipo MIME correcto
-            val mimeType = when (archivo.extension.lowercase()) {
-                "jpg", "jpeg" -> "image/jpeg"
-                "png" -> "image/png"
-                "mp4" -> "video/mp4"
-                "mov" -> "video/quicktime"
-                "avi" -> "video/x-msvideo"
-                "pdf" -> "application/pdf"
-                "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                "txt" -> "text/plain"
-                else -> "application/octet-stream"
-            }
-            
-            val requestBody = okhttp3.MultipartBody.Builder()
-                .setType(okhttp3.MultipartBody.FORM)
-                .addFormDataPart("chat_id", chatId)
-                .addFormDataPart(
-                    "document",
-                    archivo.name,
-                    okhttp3.RequestBody.create(mimeType.toMediaTypeOrNull(), archivo)
-                )
-                .build()
-                
-            val request = Request.Builder()
-                .url(url)
-                .post(requestBody)
-                .build()
-                
-            val response = client.newCall(request).execute()
-            
+        val maxReintentos = 5
+        var intento = 1
+        var backoff = 1000L // 1 segundo
+        val maxBackoff = 60000L // 1 minuto
+        while (intento <= maxReintentos) {
             try {
+                // Crear cliente con timeouts más largos para archivos grandes
+                val client = OkHttpClient.Builder()
+                    .connectTimeout(60L, java.util.concurrent.TimeUnit.SECONDS)
+                    .readTimeout(300L, java.util.concurrent.TimeUnit.SECONDS) // 5 minutos para archivos grandes
+                    .writeTimeout(300L, java.util.concurrent.TimeUnit.SECONDS)
+                    .build()
+                
+                // Determinar el tipo MIME correcto
+                val mimeType = when (archivo.extension.lowercase()) {
+                    "jpg", "jpeg" -> "image/jpeg"
+                    "png" -> "image/png"
+                    "mp4" -> "video/mp4"
+                    "mov" -> "video/quicktime"
+                    "avi" -> "video/x-msvideo"
+                    "pdf" -> "application/pdf"
+                    "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    "txt" -> "text/plain"
+                    else -> "application/octet-stream"
+                }
+                
+                val requestBody = okhttp3.MultipartBody.Builder()
+                    .setType(okhttp3.MultipartBody.FORM)
+                    .addFormDataPart("chat_id", chatId)
+                    .addFormDataPart(
+                        "document",
+                        archivo.name,
+                        okhttp3.RequestBody.create(mimeType.toMediaTypeOrNull(), archivo)
+                    )
+                    .build()
+                
+                val request = Request.Builder()
+                    .url(url)
+                    .post(requestBody)
+                    .build()
+                
+                val response = client.newCall(request).execute()
+                val responseBody = response.body?.string() ?: ""
                 if (!response.isSuccessful) {
-                    val body = response.body?.string() ?: "Sin respuesta del servidor"
-                    val msg = "Error HTTP ${response.code}: $body"
+                    // Manejo de error 429 (rate limit)
+                    if (response.code == 429) {
+                        var retryAfter = 0L
+                        try {
+                            val json = org.json.JSONObject(responseBody)
+                            retryAfter = json.optJSONObject("parameters")?.optLong("retry_after") ?: 0L
+                        } catch (_: Exception) {}
+                        if (retryAfter > 0) {
+                            Log.w(TAG, "Error 429: esperando $retryAfter segundos antes de reintentar archivo ${archivo.name}")
+                            Thread.sleep(retryAfter * 1000)
+                        } else {
+                            Log.w(TAG, "Error 429: esperando $backoff ms antes de reintentar archivo ${archivo.name}")
+                            Thread.sleep(backoff)
+                            backoff = (backoff * 2).coerceAtMost(maxBackoff)
+                        }
+                        intento++
+                        response.close()
+                        continue
+                    }
+                    val msg = "Error HTTP ${response.code}: $responseBody"
                     Log.e(TAG, "Error HTTP enviando archivo ${archivo.name} a Telegram: $msg")
+                    response.close()
                     return msg
                 }
                 
                 // Verificar que la respuesta sea válida
-                val responseBody = response.body?.string()
-                if (responseBody == null || responseBody.isEmpty()) {
+                if (responseBody.isEmpty()) {
                     val msg = "Respuesta vacía del servidor para: ${archivo.name}"
                     Log.w(TAG, msg)
+                    response.close()
                     return msg
                 }
                 
@@ -493,33 +515,41 @@ object BackupUtils {
                 if (!responseBody.contains("\"ok\":true")) {
                     val msg = "Respuesta de error de Telegram: $responseBody"
                     Log.e(TAG, "Error en respuesta de Telegram para ${archivo.name}: $msg")
+                    response.close()
                     return msg
                 }
                 
                 Log.d(TAG, "Archivo enviado exitosamente: ${archivo.name}")
+                response.close()
                 return null // null = éxito
                 
-            } finally {
-                response.close()
+            } catch (e: java.net.SocketTimeoutException) {
+                val msg = "Timeout enviando archivo: ${archivo.name}"
+                Log.e(TAG, msg, e)
+                try { Thread.sleep(backoff) } catch (_: Exception) {}
+                backoff = (backoff * 2).coerceAtMost(maxBackoff)
+                intento++
+            } catch (e: java.net.UnknownHostException) {
+                val msg = "Error de conexión (sin internet): ${archivo.name}"
+                Log.e(TAG, msg, e)
+                try { Thread.sleep(backoff) } catch (_: Exception) {}
+                backoff = (backoff * 2).coerceAtMost(maxBackoff)
+                intento++
+            } catch (e: java.net.ConnectException) {
+                val msg = "Error de conexión al servidor: ${archivo.name}"
+                Log.e(TAG, msg, e)
+                try { Thread.sleep(backoff) } catch (_: Exception) {}
+                backoff = (backoff * 2).coerceAtMost(maxBackoff)
+                intento++
+            } catch (e: Exception) {
+                val msg = "Error inesperado enviando archivo ${archivo.name}: ${e.message}"
+                Log.e(TAG, msg, e)
+                try { Thread.sleep(backoff) } catch (_: Exception) {}
+                backoff = (backoff * 2).coerceAtMost(maxBackoff)
+                intento++
             }
-            
-        } catch (e: java.net.SocketTimeoutException) {
-            val msg = "Timeout enviando archivo: ${archivo.name}"
-            Log.e(TAG, msg, e)
-            return msg
-        } catch (e: java.net.UnknownHostException) {
-            val msg = "Error de conexión (sin internet): ${archivo.name}"
-            Log.e(TAG, msg, e)
-            return msg
-        } catch (e: java.net.ConnectException) {
-            val msg = "Error de conexión al servidor: ${archivo.name}"
-            Log.e(TAG, msg, e)
-            return msg
-        } catch (e: Exception) {
-            val msg = "Error inesperado enviando archivo ${archivo.name}: ${e.message}"
-            Log.e(TAG, msg, e)
-            return msg
         }
+        return "No se pudo enviar el archivo tras $maxReintentos intentos: ${archivo.name}"
     }
 
     fun ejecutarBackupManual(context: Context): Boolean {
@@ -527,8 +557,8 @@ object BackupUtils {
             Log.d(TAG, "Iniciando backup manual")
             
             // Verificar configuración
-            val config = obtenerConfigBot(context)
-            if (config == null) {
+            val config = ErrorHandler.obtenerConfigBot(context)
+            if (config.first.isNullOrBlank() || config.second.isNullOrBlank()) {
                 Log.e(TAG, "Configuración del bot no encontrada")
                 return false
             }

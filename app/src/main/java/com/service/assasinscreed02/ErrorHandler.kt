@@ -11,8 +11,23 @@ object ErrorHandler {
     private const val TAG = "ErrorHandler"
     private const val PREFS_NAME = "RadioBackupPrefs"
     
-    fun logError(tag: String, message: String, exception: Exception? = null) {
+    fun logError(tag: String, message: String, exception: Exception? = null, context: Context? = null) {
         Log.e(tag, message, exception)
+        try {
+            context?.let {
+                val logFile = File(it.filesDir, "radio2_error_log.txt")
+                val time = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
+                val errorMsg = StringBuilder()
+                errorMsg.append("[$time] $tag: $message\n")
+                exception?.let { ex ->
+                    errorMsg.append("Excepción: ${ex.message}\n")
+                    errorMsg.append(Log.getStackTraceString(ex)).append("\n")
+                }
+                logFile.appendText(errorMsg.toString())
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error guardando log persistente: ${e.message}")
+        }
     }
     
     fun showToast(context: Context, message: String, isError: Boolean = false) {
