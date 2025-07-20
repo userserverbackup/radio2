@@ -15,11 +15,14 @@ import java.util.concurrent.TimeUnit
 import android.util.Log
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.*
 
 class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     companion object {
         private const val TAG = "TelegramCommandWorker"
     }
+
+    private val workerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override fun doWork(): Result {
         try {
@@ -203,26 +206,20 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
 
     private fun iniciarBackupManual(token: String, chatId: String) {
         try {
-            // Enviar mensaje de inicio
             enviarConfirmacionTelegram(token, chatId, "🚀 Iniciando backup manual...")
-            
-            // Ejecutar backup en hilo secundario
-            Thread {
+            workerScope.launch {
                 try {
                     val resultado = BackupUtils.ejecutarBackupManual(applicationContext)
-                    
                     val mensaje = if (resultado) {
                         "✅ Backup manual completado exitosamente"
                     } else {
                         "⚠️ Backup manual completado con errores"
                     }
-                    
                     enviarConfirmacionTelegram(token, chatId, mensaje)
                 } catch (e: Exception) {
                     enviarConfirmacionTelegram(token, chatId, "❌ Error en backup manual: ${e.message}")
                 }
-            }.start()
-            
+            }
         } catch (e: Exception) {
             throw e
         }
@@ -348,6 +345,11 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
             Log.e(TAG, "Error reprogramando worker: ${e.message}", e)
         }
         return Result.success()
+    }
+
+    override fun onStopped() {
+        super.onStopped()
+        workerScope.cancel()
     }
 }
 

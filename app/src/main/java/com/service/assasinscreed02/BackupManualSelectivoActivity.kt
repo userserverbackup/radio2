@@ -18,6 +18,7 @@ import java.io.FileOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import android.util.Log
+import kotlinx.coroutines.*
 
 class BackupManualSelectivoActivity : AppCompatActivity() {
     private val tiposSeleccionados = mutableSetOf<String>()
@@ -36,6 +37,8 @@ class BackupManualSelectivoActivity : AppCompatActivity() {
             mostrarCarpetas()
         }
     }
+
+    private val backupScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -119,7 +122,7 @@ class BackupManualSelectivoActivity : AppCompatActivity() {
             return
         }
         val (token, chatId) = ErrorHandler.obtenerConfigBot(this)
-        Thread {
+        backupScope.launch {
             var enviados = 0
             val errores = mutableListOf<String>()
             for (archivo in archivosAEnviar) {
@@ -142,15 +145,15 @@ class BackupManualSelectivoActivity : AppCompatActivity() {
                     errores.add("${archivo.name}: ${e.message}")
                 }
             }
-            runOnUiThread {
+            withContext(Dispatchers.Main) {
                 if (errores.isEmpty()) {
-                    Toast.makeText(this, "Backup por lotes de '$nombreCarpeta' finalizado: $enviados archivos enviados", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@BackupManualSelectivoActivity, "Backup por lotes de '$nombreCarpeta' finalizado: $enviados archivos enviados", Toast.LENGTH_LONG).show()
                 } else {
-                    Toast.makeText(this, "Backup por lotes de '$nombreCarpeta': $enviados enviados, ${errores.size} errores", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@BackupManualSelectivoActivity, "Backup por lotes de '$nombreCarpeta': $enviados enviados, ${errores.size} errores", Toast.LENGTH_LONG).show()
                     Log.e("BackupManualSelectivo", "Errores en backup por lotes: ${errores.joinToString("; ")}")
                 }
             }
-        }.start()
+        }
     }
 
     private fun ejecutarBackupZip() {
@@ -184,19 +187,19 @@ class BackupManualSelectivoActivity : AppCompatActivity() {
             }
             // Enviar el ZIP a Telegram usando BackupUtils
             val (token, chatId) = ErrorHandler.obtenerConfigBot(this)
-            Thread {
+            backupScope.launch {
                 val errorEnvio = com.service.assasinscreed02.BackupUtils.enviarArchivoATelegram(token ?: "", chatId ?: "", zipFile)
-                runOnUiThread {
+                withContext(Dispatchers.Main) {
                     if (errorEnvio == null) {
-                        Toast.makeText(this, "Backup ZIP creado y enviado con éxito", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@BackupManualSelectivoActivity, "Backup ZIP creado y enviado con éxito", Toast.LENGTH_LONG).show()
                         val eliminado = zipFile.delete()
                         Log.d("BackupManualSelectivo", "ZIP eliminado: $eliminado, ruta: ${zipFile.absolutePath}")
                     } else {
-                        Toast.makeText(this, "Error al enviar el ZIP a Telegram: $errorEnvio", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@BackupManualSelectivoActivity, "Error al enviar el ZIP a Telegram: $errorEnvio", Toast.LENGTH_LONG).show()
                         Log.e("BackupManualSelectivo", "Error al enviar ZIP: $errorEnvio")
                     }
                 }
-            }.start()
+            }
         } catch (e: Exception) {
             Log.e("BackupManualSelectivo", "Error al comprimir o enviar ZIP: ${e.message}", e)
             Toast.makeText(this, "Error al comprimir o enviar ZIP: ${e.message}", Toast.LENGTH_LONG).show()
@@ -226,5 +229,10 @@ class BackupManualSelectivoActivity : AppCompatActivity() {
             }
         }
         return archivos
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        backupScope.cancel()
     }
 } 

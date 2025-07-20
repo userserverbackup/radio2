@@ -54,6 +54,16 @@ class LogsActivity : AppCompatActivity() {
             enviarErroresPorCorreo()
         }
         root.addView(btnEnviarErrores, 3) // Debajo de los errores
+
+        // Botón para limpiar el log de errores críticos
+        val btnLimpiarErrores = Button(this)
+        btnLimpiarErrores.text = "Limpiar errores críticos"
+        btnLimpiarErrores.setOnClickListener {
+            ErrorHandler.limpiarLogErrores(this)
+            Toast.makeText(this, "Log de errores críticos limpiado", Toast.LENGTH_SHORT).show()
+            recreate()
+        }
+        root.addView(btnLimpiarErrores, 4)
     }
 
     private fun obtenerLineasLog(): List<String> {

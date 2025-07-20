@@ -81,7 +81,7 @@ class MainActivity : AppCompatActivity() {
                 startActivity(Intent(this, ConfigBotActivity::class.java))
             } catch (e: Exception) {
                 Log.e(TAG, "Error abriendo ConfigBotActivity: "+e.message)
-                Toast.makeText(this, "Error abriendo configuración del bot", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Error abriendo configuración del bot", Toast.LENGTH_SHORT).show()
             }
         }
         
@@ -90,7 +90,7 @@ class MainActivity : AppCompatActivity() {
                 startActivity(Intent(this, ConfigBackupActivity::class.java))
             } catch (e: Exception) {
                 Log.e(TAG, "Error abriendo ConfigBackupActivity: ${e.message}")
-                Toast.makeText(this, "Error abriendo configuración de backup", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Error abriendo configuración de backup", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -99,7 +99,7 @@ class MainActivity : AppCompatActivity() {
                 toggleBackup()
             } catch (e: Exception) {
                 Log.e(TAG, "Error alternando backup: ${e.message}")
-                Toast.makeText(this, "Error controlando el backup", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Error controlando el backup", Toast.LENGTH_SHORT).show()
             }
         }
         
@@ -108,7 +108,7 @@ class MainActivity : AppCompatActivity() {
                 forzarBackup()
             } catch (e: Exception) {
                 Log.e(TAG, "Error forzando backup: ${e.message}")
-                Toast.makeText(this, "Error forzando backup: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@MainActivity, "Error forzando backup: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
 
@@ -117,7 +117,7 @@ class MainActivity : AppCompatActivity() {
                 mostrarDialogoAdvertenciaDatos()
             } catch (e: Exception) {
                 Log.e(TAG, "Error mostrando diálogo de advertencia: ${e.message}")
-                Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@MainActivity, "Error: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
 
@@ -129,7 +129,7 @@ class MainActivity : AppCompatActivity() {
                 startActivity(Intent(this, LogsActivity::class.java))
             } catch (e: Exception) {
                 Log.e(TAG, "Error abriendo LogsActivity: "+e.message)
-                Toast.makeText(this, "Error abriendo logs", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Error abriendo logs", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -295,14 +295,7 @@ class MainActivity : AppCompatActivity() {
                 return
             }
         }
-        // Notificaciones
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val notiPerm = Manifest.permission.POST_NOTIFICATIONS
-            if (ContextCompat.checkSelfPermission(this, notiPerm) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, arrayOf(notiPerm), PERMISSION_REQUEST_CODE)
-                return
-            }
-        }
+        // Eliminar solicitud de notificaciones
         // Overlay
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
             val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
@@ -312,7 +305,7 @@ class MainActivity : AppCompatActivity() {
         }
         // Ignorar optimización de batería
         val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !pm.isIgnoringBatteryOptimizations(packageName)) {
+        if (true && !pm.isIgnoringBatteryOptimizations(packageName)) {
             val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
             intent.data = android.net.Uri.parse("package:" + packageName)
             startActivity(intent)

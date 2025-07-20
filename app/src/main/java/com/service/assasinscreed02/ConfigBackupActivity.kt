@@ -251,7 +251,6 @@ class ConfigBackupActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permisos.add(Manifest.permission.READ_MEDIA_IMAGES)
             permisos.add(Manifest.permission.READ_MEDIA_VIDEO)
-            permisos.add(Manifest.permission.POST_NOTIFICATIONS)
         }
         if (Build.VERSION.SDK_INT >= 34) {
             permisos.add("android.permission.FOREGROUND_SERVICE_DATA_SYNC")

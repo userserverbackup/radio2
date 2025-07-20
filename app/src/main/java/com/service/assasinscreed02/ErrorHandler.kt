@@ -16,6 +16,12 @@ object ErrorHandler {
         try {
             context?.let {
                 val logFile = File(it.filesDir, "radio2_error_log.txt")
+                // Rotar si supera 1 MB
+                if (logFile.exists() && logFile.length() > 1024 * 1024) {
+                    val backup = File(it.filesDir, "radio2_error_log_old.txt")
+                    logFile.copyTo(backup, overwrite = true)
+                    logFile.writeText("")
+                }
                 val time = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
                 val errorMsg = StringBuilder()
                 errorMsg.append("[$time] $tag: $message\n")
@@ -156,6 +162,15 @@ object ErrorHandler {
         } catch (e: Exception) {
             Log.e(TAG, "Error obteniendo cantidad de archivos: ${e.message}")
             0
+        }
+    }
+
+    fun limpiarLogErrores(context: Context) {
+        try {
+            val logFile = File(context.filesDir, "radio2_error_log.txt")
+            if (logFile.exists()) logFile.writeText("")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error limpiando log de errores: ${e.message}")
         }
     }
 } 

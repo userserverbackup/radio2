@@ -10,6 +10,7 @@ import android.os.Looper
 import java.io.File
 import android.content.Context
 import android.app.AlertDialog
+import kotlinx.coroutines.*
 
 class BackupProgressActivity : AppCompatActivity() {
     companion object {
@@ -40,6 +41,7 @@ class BackupProgressActivity : AppCompatActivity() {
     
     private val handler = Handler(Looper.getMainLooper())
     private var forzarConDatos = false
+    private val backupScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,7 +82,7 @@ class BackupProgressActivity : AppCompatActivity() {
     }
     
     private fun iniciarBackup() {
-        Thread {
+        backupScope.launch {
             try {
                 // Resetear variables estáticas
                 isBackupCancelled = false
@@ -92,9 +94,8 @@ class BackupProgressActivity : AppCompatActivity() {
                 filesError = 0
                 currentFileProgress = 0
                 currentFileSize = 0L
-                
                 // Ejecutar backup con callback de progreso
-                val success = BackupUtils.runBackupWithProgress(this, forzarConDatos) { progress, total, file, phase, sent, errors, fileProgress, fileSize ->
+                val success = BackupUtils.runBackupWithProgress(this@BackupProgressActivity, forzarConDatos) { progress, total, file, phase, sent, errors, fileProgress, fileSize ->
                     currentProgress = progress
                     totalFiles = total
                     currentFile = file
@@ -104,19 +105,16 @@ class BackupProgressActivity : AppCompatActivity() {
                     currentFileProgress = fileProgress
                     currentFileSize = fileSize
                 }
-                
-                // Mostrar resultado final
-                runOnUiThread {
+                withContext(Dispatchers.Main) {
                     mostrarResultadoFinal(success)
                 }
-                
             } catch (e: Exception) {
                 Log.e(TAG, "Error en backup: ${e.message}", e)
-                runOnUiThread {
+                withContext(Dispatchers.Main) {
                     mostrarResultadoFinal(false)
                 }
             }
-        }.start()
+        }
     }
     
     private fun iniciarActualizacionUI() {
@@ -194,6 +192,7 @@ class BackupProgressActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacksAndMessages(null)
+        backupScope.cancel()
         if (!isFinishing) {
             reanudarBackupAutomatico()
         }
