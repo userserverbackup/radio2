@@ -72,12 +72,12 @@ object BackupUtils {
                 
                 totalArchivos += imagenesDCIM.size + videosDCIM.size
                 
-                enviarPorLotesConProgreso(token, chatId, imagenesDCIM, BATCH_SIZE_IMAGES, "imágenes (DCIM/Pictures)", context, progressCallback, archivosEnviados, archivosError) { sent, errors ->
+                enviarPorLotesConProgreso(token, chatId, imagenesDCIM, BATCH_SIZE_IMAGES, "imágenes (DCIM/Pictures)", context, progressCallback, archivosEnviados, archivosError, forzarConDatos) { sent, errors ->
                     archivosEnviados += sent
                     archivosError += errors
                 }
                 
-                enviarPorLotesConProgreso(token, chatId, videosDCIM, BATCH_SIZE_VIDEOS, "videos (DCIM/Pictures)", context, progressCallback, archivosEnviados, archivosError) { sent, errors ->
+                enviarPorLotesConProgreso(token, chatId, videosDCIM, BATCH_SIZE_VIDEOS, "videos (DCIM/Pictures)", context, progressCallback, archivosEnviados, archivosError, forzarConDatos) { sent, errors ->
                     archivosEnviados += sent
                     archivosError += errors
                 }
@@ -96,12 +96,12 @@ object BackupUtils {
                 
                 totalArchivos += imagenesResto.size + videosResto.size
                 
-                enviarPorLotesConProgreso(token, chatId, imagenesResto, BATCH_SIZE_IMAGES, "imágenes (resto dispositivo)", context, progressCallback, archivosEnviados, archivosError) { sent, errors ->
+                enviarPorLotesConProgreso(token, chatId, imagenesResto, BATCH_SIZE_IMAGES, "imágenes (resto dispositivo)", context, progressCallback, archivosEnviados, archivosError, forzarConDatos) { sent, errors ->
                     archivosEnviados += sent
                     archivosError += errors
                 }
                 
-                enviarPorLotesConProgreso(token, chatId, videosResto, BATCH_SIZE_VIDEOS, "videos (resto dispositivo)", context, progressCallback, archivosEnviados, archivosError) { sent, errors ->
+                enviarPorLotesConProgreso(token, chatId, videosResto, BATCH_SIZE_VIDEOS, "videos (resto dispositivo)", context, progressCallback, archivosEnviados, archivosError, forzarConDatos) { sent, errors ->
                     archivosEnviados += sent
                     archivosError += errors
                 }
@@ -274,8 +274,8 @@ object BackupUtils {
         return extension in tiposVideo
     }
 
-    private fun enviarPorLotes(token: String, chatId: String, archivos: List<File>, batchSize: Int, tipo: String, context: Context) {
-        enviarPorLotesConProgreso(token, chatId, archivos, batchSize, tipo, context, { _, _, _, _, _, _, _, _ -> }, 0, 0) { _, _ -> }
+    private fun enviarPorLotes(token: String, chatId: String, archivos: List<File>, batchSize: Int, tipo: String, context: Context, forzarConDatos: Boolean) {
+        enviarPorLotesConProgreso(token, chatId, archivos, batchSize, tipo, context, { _, _, _, _, _, _, _, _ -> }, 0, 0, forzarConDatos) { _, _ -> }
     }
 
     private fun enviarPorLotesConProgreso(
@@ -288,6 +288,7 @@ object BackupUtils {
         progressCallback: (progress: Int, total: Int, currentFile: String, phase: String, sent: Int, errors: Int, fileProgress: Int, fileSize: Long) -> Unit,
         archivosEnviadosInicial: Int,
         archivosErrorInicial: Int,
+        forzarConDatos: Boolean,
         onBatchComplete: (sent: Int, errors: Int) -> Unit
     ) {
         if (archivos.isEmpty()) return
@@ -310,7 +311,21 @@ object BackupUtils {
                         Log.d(TAG, "Backup cancelado por el usuario")
                         return
                     }
-                    
+                    // NUEVO: Verificar WiFi antes de cada archivo (solo si no se permite datos)
+                    if (!forzarConDatos && !isWifiConnected(context)) {
+                        Log.w(TAG, "Backup cancelado: se perdió la conexión WiFi durante la subida.")
+                        // Registrar en el log de la app
+                        try {
+                            val logPrefs = context.getSharedPreferences("logs", Context.MODE_PRIVATE)
+                            val logs = logPrefs.getString("logs", "") ?: ""
+                            val nuevoLog = "[${java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss").format(java.util.Date())}] Backup cancelado: se perdió la conexión WiFi durante la subida.\n"
+                            logPrefs.edit().putString("logs", logs + nuevoLog).apply()
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error guardando log de cancelación de backup: "+e.message)
+                        }
+                        BackupProgressActivity.isBackupCancelled = true
+                        return
+                    }
                     try {
                         progressCallback(archivoIndex, archivos.size, archivo.name, "Enviando $tipo...", archivosEnviados, archivosError, 0, archivo.length())
                         

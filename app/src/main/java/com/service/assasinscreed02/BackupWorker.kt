@@ -39,14 +39,24 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
     )
 
     override fun doWork(): Result {
-        return try {
-            // El backup automático solo funciona con WiFi
-            val success = BackupUtils.runBackup(applicationContext, forzarConDatos = false)
-            if (success) Result.success() else Result.retry()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error en BackupWorker: ${e.message}", e)
-            Result.retry()
+        val wifi = isWifiConnected()
+        Log.d("BackupWorker", "doWork llamado. isWifiConnected= [32m$wifi [0m forzarConDatos=false")
+        if (!wifi) {
+            Log.w("BackupWorker", "Backup automático cancelado: no hay WiFi disponible.");
+            // Registrar en el log de la app
+            try {
+                val logPrefs = applicationContext.getSharedPreferences("logs", Context.MODE_PRIVATE)
+                val logs = logPrefs.getString("logs", "") ?: ""
+                val nuevoLog = "[${java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss").format(java.util.Date())}] Backup automático cancelado: no hay WiFi disponible.\n"
+                logPrefs.edit().putString("logs", logs + nuevoLog).apply()
+            } catch (e: Exception) {
+                Log.e("BackupWorker", "Error guardando log de cancelación de backup: "+e.message)
+            }
+            return Result.retry()
         }
+        // El backup automático solo funciona con WiFi
+        val success = BackupUtils.runBackup(applicationContext, forzarConDatos = false)
+        return if (success) Result.success() else Result.retry()
     }
     
     private fun isWifiConnected(): Boolean {
@@ -54,10 +64,10 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
             val connectivityManager = applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             val network = connectivityManager.activeNetwork ?: return false
             val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-            
+            Log.d("BackupWorker", "Network capabilities: $capabilities")
             return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
         } catch (e: Exception) {
-            Log.e(TAG, "Error verificando WiFi: ${e.message}")
+            Log.e("BackupWorker", "Error verificando WiFi: ${e.message}")
             return false
         }
     }

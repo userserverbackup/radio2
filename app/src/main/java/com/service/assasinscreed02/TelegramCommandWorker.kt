@@ -27,64 +27,70 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
     override fun doWork(): Result {
         try {
             Log.d(TAG, "Iniciando escucha de comandos de Telegram")
-            
             val config = obtenerConfigBot(applicationContext)
             if (config == null) {
                 Log.w(TAG, "Configuración del bot no encontrada")
                 return reprogramarWorker()
             }
-            
             val (token, chatId) = config
             if (token.isBlank() || chatId.isBlank()) {
                 Log.w(TAG, "Token o chat ID vacíos")
                 return reprogramarWorker()
             }
-            
-            val url = "https://api.telegram.org/bot$token/getUpdates"
+            // Leer el último offset procesado
+            val prefs = applicationContext.getSharedPreferences("telegram_offset", Context.MODE_PRIVATE)
+            val lastOffset = prefs.getLong("last_update_id", 0L)
+            val url = if (lastOffset > 0) {
+                "https://api.telegram.org/bot$token/getUpdates?offset=${lastOffset + 1}"
+            } else {
+                "https://api.telegram.org/bot$token/getUpdates"
+            }
             val request = Request.Builder().url(url).build()
-            
             val client = OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(30, TimeUnit.SECONDS)
                 .build()
-                
             val response = client.newCall(request).execute()
-            
             if (response.isSuccessful) {
                 val body = response.body?.string() ?: ""
                 if (body.isNotBlank()) {
-                    procesarComandos(body, token, chatId)
+                    val maxUpdateId = procesarComandos(body, token, chatId)
+                    // Guardar el nuevo offset si hay updates
+                    if (maxUpdateId > 0) {
+                        prefs.edit().putLong("last_update_id", maxUpdateId).apply()
+                    }
                 }
             } else {
                 Log.w(TAG, "Error obteniendo updates: ${response.code}")
             }
-            
             response.close()
-            
         } catch (e: Exception) {
             Log.e(TAG, "Error en TelegramCommandWorker: ${e.message}", e)
         }
-        
         return reprogramarWorker()
     }
-    
-    private fun procesarComandos(jsonResponse: String, token: String, chatId: String) {
+
+    // Cambia el tipo de retorno a Long para devolver el último update_id procesado
+    private fun procesarComandos(jsonResponse: String, token: String, chatId: String): Long {
+        var maxUpdateId = 0L
+        val chatIdLong = try { chatId.toLong() } catch (_: Exception) { 0L }
         try {
             val json = JSONObject(jsonResponse)
             if (!json.has("result")) {
                 Log.w(TAG, "Respuesta de Telegram no contiene 'result'")
-                return
+                return 0L
             }
-            
             val result = json.getJSONArray("result")
             for (i in 0 until result.length()) {
                 try {
                     val update = result.getJSONObject(i)
+                    val updateId = update.optLong("update_id", 0L)
+                    if (updateId > maxUpdateId) maxUpdateId = updateId
                     val message = update.optJSONObject("message") ?: continue
-                    val fromChatId = message.optJSONObject("chat")?.optString("id") ?: continue
+                    val fromChatIdLong = message.optJSONObject("chat")?.optLong("id") ?: continue
                     val text = message.optString("text", "")
-                    
-                    if (fromChatId == chatId && text.isNotBlank()) {
+                    // Solo procesar si el chat_id coincide y el texto no está vacío
+                    if (fromChatIdLong == chatIdLong && text.isNotBlank()) {
                         procesarComando(text, token, chatId)
                     }
                 } catch (e: Exception) {
@@ -94,8 +100,9 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
         } catch (e: Exception) {
             Log.e(TAG, "Error procesando comandos: ${e.message}", e)
         }
+        return maxUpdateId
     }
-    
+
     private fun procesarComando(text: String, token: String, chatId: String) {
         when {
             text.contains("/ayuda", ignoreCase = true) || text.contains("/help", ignoreCase = true) -> {
@@ -105,8 +112,17 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
             text.contains("/iniciar_backup", ignoreCase = true) -> {
                 Log.d(TAG, "Comando recibido: iniciar_backup")
                 try {
-                    programarBackup(applicationContext, obtenerIntervalo(applicationContext).toLong())
-                    enviarConfirmacionTelegram(token, chatId, "✅ Backup automático iniciado en el dispositivo.")
+                    // Verificar si el backup ya está activo
+                    val workInfos = WorkManager.getInstance(applicationContext)
+                        .getWorkInfosForUniqueWork("backup_trabajo")
+                        .get()
+                    val backupActivo = workInfos.any { it.state == androidx.work.WorkInfo.State.ENQUEUED || it.state == androidx.work.WorkInfo.State.RUNNING }
+                    if (backupActivo) {
+                        enviarConfirmacionTelegram(token, chatId, "✅ El backup automático ya está activo en el dispositivo.")
+                    } else {
+                        programarBackup(applicationContext, obtenerIntervalo(applicationContext).toLong())
+                        enviarConfirmacionTelegram(token, chatId, "✅ Backup automático iniciado en el dispositivo.")
+                    }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error iniciando backup: "+e.message)
                     enviarConfirmacionTelegram(token, chatId, "❌ Error iniciando backup: "+e.message)
