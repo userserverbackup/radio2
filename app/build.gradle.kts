@@ -22,6 +22,14 @@ android {
     //     unitTests.isEnabled = false
     // }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("app-radio-key.jks")
+            storePassword = "155077488"
+            keyAlias = "my-key-155077488"
+            keyPassword = "155077488"
+        }
+    }
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -29,6 +37,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {

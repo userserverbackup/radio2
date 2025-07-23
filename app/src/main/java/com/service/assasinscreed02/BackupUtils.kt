@@ -34,7 +34,8 @@ object BackupUtils {
         progressCallback: (progress: Int, total: Int, currentFile: String, phase: String, sent: Int, errors: Int, fileProgress: Int, fileSize: Long) -> Unit
     ): Boolean {
         try {
-            Log.d(TAG, "Iniciando backup desde BackupUtils (forzarConDatos: $forzarConDatos)")
+            Log.d(TAG, "[DEBUG] runBackupWithProgress llamado. forzarConDatos=$forzarConDatos")
+            Log.d(TAG, "[DEBUG] isWifiConnected=${isWifiConnected(context)}, isMobileDataConnected=${isMobileDataConnected(context)}")
             val config = ErrorHandler.obtenerConfigBot(context)
             if (config.first.isNullOrBlank() || config.second.isNullOrBlank()) {
                 Log.w(TAG, "Configuración del bot no encontrada")

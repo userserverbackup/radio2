@@ -46,9 +46,9 @@ object ErrorHandler {
     
     fun validateConfig(context: Context): Boolean {
         return try {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val prefs = context.getSharedPreferences("BotConfig", Context.MODE_PRIVATE)
             val token = prefs.getString("bot_token", null)
-            val chatId = prefs.getString("chat_id", null)
+            val chatId = prefs.getString("bot_chat_id", null)
             
             !token.isNullOrBlank() && !chatId.isNullOrBlank()
         } catch (e: Exception) {

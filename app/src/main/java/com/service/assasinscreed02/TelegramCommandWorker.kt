@@ -125,7 +125,9 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
                 Log.d(TAG, "Comando recibido: estado")
                 try {
                     val estado = obtenerEstadoBackup()
-                    enviarConfirmacionTelegram(token, chatId, "📊 Estado del backup: $estado")
+                    val mensaje = if (estado.isNullOrBlank()) "⚠️ No hay información de estado disponible." else "📊 Estado del backup: $estado"
+                    Log.d(TAG, "Enviando mensaje a Telegram: '$mensaje'")
+                    enviarConfirmacionTelegram(token, chatId, mensaje)
                 } catch (e: Exception) {
                     Log.e(TAG, "Error obteniendo estado: "+e.message)
                     enviarConfirmacionTelegram(token, chatId, "❌ Error obteniendo estado: "+e.message)
@@ -145,7 +147,9 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
                 Log.d(TAG, "Comando recibido: configuracion")
                 try {
                     val config = obtenerConfiguracion()
-                    enviarConfirmacionTelegram(token, chatId, config)
+                    val mensaje = if (config.isNullOrBlank()) "⚠️ No hay configuración disponible." else config
+                    Log.d(TAG, "Enviando mensaje a Telegram: '$mensaje'")
+                    enviarConfirmacionTelegram(token, chatId, mensaje)
                 } catch (e: Exception) {
                     Log.e(TAG, "Error obteniendo configuración: "+e.message)
                     enviarConfirmacionTelegram(token, chatId, "❌ Error obteniendo configuración: "+e.message)
@@ -175,7 +179,9 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
                 Log.d(TAG, "Comando recibido: dispositivo")
                 try {
                     val info = obtenerInfoDispositivo()
-                    enviarConfirmacionTelegram(token, chatId, info)
+                    val mensaje = if (info.isNullOrBlank()) "⚠️ No hay información del dispositivo disponible." else info
+                    Log.d(TAG, "Enviando mensaje a Telegram: '$mensaje'")
+                    enviarConfirmacionTelegram(token, chatId, mensaje)
                 } catch (e: Exception) {
                     Log.e(TAG, "Error obteniendo info del dispositivo: "+e.message)
                     enviarConfirmacionTelegram(token, chatId, "❌ Error obteniendo info del dispositivo: "+e.message)
@@ -201,7 +207,9 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
             _Envía cualquier comando para ejecutarlo._
         """.trimIndent()
         val chatIdSecundario = obtenerChatIdSecundario(applicationContext)
-        enviarConfirmacionTelegram(token, chatIdSecundario ?: chatId, ayuda)
+        val mensaje = if (ayuda.isBlank()) "⚠️ No hay ayuda disponible." else ayuda
+        Log.d(TAG, "Enviando mensaje a Telegram: '$mensaje'")
+        enviarConfirmacionTelegram(token, chatIdSecundario ?: chatId, mensaje)
     }
 
     private fun iniciarBackupManual(token: String, chatId: String) {
@@ -361,22 +369,21 @@ fun enviarConfirmacionTelegram(token: String, chatId: String, mensaje: String) {
     while (intento <= maxReintentos) {
         try {
             val url = "https://api.telegram.org/bot$token/sendMessage"
-            val body = """
-                {
-                    \"chat_id\": \"$chatId\",
-                    \"text\": \"$mensaje\",
-                    \"parse_mode\": \"Markdown\"
-                }
-            """.trimIndent()
+            val json = org.json.JSONObject().apply {
+                put("chat_id", chatId)
+                put("text", mensaje)
+                put("parse_mode", "Markdown")
+            }
+            val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
 
             val request = Request.Builder()
                 .url(url)
-                .post(body.toRequestBody("application/json".toMediaTypeOrNull()))
+                .post(body)
                 .build()
 
             val client = OkHttpClient.Builder()
-                .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(30, TimeUnit.SECONDS)
+                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
                 .build()
 
             val response = client.newCall(request).execute()
@@ -390,8 +397,8 @@ fun enviarConfirmacionTelegram(token: String, chatId: String, mensaje: String) {
                 if (response.code == 429) {
                     var retryAfter = 0L
                     try {
-                        val json = org.json.JSONObject(responseBody)
-                        retryAfter = json.optJSONObject("parameters")?.optLong("retry_after") ?: 0L
+                        val jsonResp = org.json.JSONObject(responseBody)
+                        retryAfter = jsonResp.optJSONObject("parameters")?.optLong("retry_after") ?: 0L
                     } catch (_: Exception) {}
                     if (retryAfter > 0) {
                         Log.w("TelegramCommandWorker", "Error 429: esperando $retryAfter segundos antes de reintentar")
