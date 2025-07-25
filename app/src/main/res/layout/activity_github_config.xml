@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:spacing="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Configuración de GitHub"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:layout_marginBottom="24dp" />
+
+        <!-- Token de GitHub -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Token de GitHub (Personal Access Token)"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/editGitHubToken"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="ghp_xxxxxxxxxxxxxxxxxxxx"
+            android:inputType="textPassword"
+            android:background="@drawable/edit_text_background"
+            android:padding="12dp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Owner -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Usuario de GitHub (Owner)"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/editGitHubOwner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="tu-usuario"
+            android:inputType="text"
+            android:background="@drawable/edit_text_background"
+            android:padding="12dp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Repositorio -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Nombre del Repositorio"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/editGitHubRepo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="radio2-backup-historial"
+            android:inputType="text"
+            android:background="@drawable/edit_text_background"
+            android:padding="12dp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Rama -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Rama (Branch)"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/editGitHubBranch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="main"
+            android:inputType="text"
+            android:background="@drawable/edit_text_background"
+            android:padding="12dp"
+            android:layout_marginBottom="24dp" />
+
+        <!-- Botones -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <Button
+                android:id="@+id/btnSaveGitHubConfig"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Guardar Config"
+                android:background="@drawable/button_primary_background"
+                android:textColor="@android:color/white"
+                android:layout_marginEnd="8dp" />
+
+            <Button
+                android:id="@+id/btnTestGitHubConnection"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Probar Conexión"
+                android:background="@drawable/button_secondary_background"
+                android:textColor="@android:color/black"
+                android:layout_marginStart="8dp" />
+
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnSyncGitHubNow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Sincronizar Ahora"
+            android:background="@drawable/button_primary_background"
+            android:textColor="@android:color/white"
+            android:layout_marginBottom="24dp" />
+
+        <!-- Estado -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Estado"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/txtGitHubStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="No configurado"
+            android:background="@drawable/historial_background"
+            android:padding="12dp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Última sincronización -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Última Sincronización"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/txtGitHubLastSync"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Nunca sincronizado"
+            android:background="@drawable/historial_background"
+            android:padding="12dp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Estadísticas -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Estadísticas"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/txtGitHubStats"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Archivos en GitHub: 0"
+            android:background="@drawable/historial_background"
+            android:padding="12dp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Información -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Información"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="• Crea un repositorio público en GitHub llamado 'radio2-backup-historial'\n\n• Genera un Personal Access Token en GitHub:\n  Settings > Developer settings > Personal access tokens\n\n• El historial se sincronizará automáticamente después de cada backup\n\n• Los archivos duplicados se evitan usando hashes MD5"
+            android:background="@drawable/historial_background"
+            android:padding="12dp"
+            android:layout_marginBottom="16dp" />
+
+    </LinearLayout>
+
+</ScrollView> 

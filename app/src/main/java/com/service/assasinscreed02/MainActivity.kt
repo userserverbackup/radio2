@@ -132,6 +132,17 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this@MainActivity, "Error abriendo logs", Toast.LENGTH_SHORT).show()
             }
         }
+
+        // Botón de configuración de GitHub
+        val btnConfigGitHub = findViewById<Button>(R.id.btnConfigGitHub)
+        btnConfigGitHub.setOnClickListener {
+            try {
+                startActivity(Intent(this, GitHubConfigActivity::class.java))
+            } catch (e: Exception) {
+                Log.e(TAG, "Error abriendo GitHubConfigActivity: ${e.message}")
+                Toast.makeText(this@MainActivity, "Error abriendo configuración de GitHub", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
     
     private fun toggleBackup() {

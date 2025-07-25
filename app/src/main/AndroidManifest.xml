@@ -81,6 +81,7 @@
         <activity android:name=".BackupManualSelectivoActivity" />
         <activity android:name=".LogsActivity" />
         <activity android:name=".BackupProgressActivity" />
+        <activity android:name=".GitHubConfigActivity" />
     </application>
 
 </manifest>

@@ -98,6 +98,15 @@
             android:layout_height="wrap_content"
             android:text="Ver logs"
             style="@style/ButtonSecondary"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Botón de configuración de GitHub -->
+        <Button
+            android:id="@+id/btnConfigGitHub"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Configurar GitHub"
+            style="@style/ButtonSecondary"
             android:layout_marginTop="12dp" />
 
     </LinearLayout>

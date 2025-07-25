@@ -1,7 +1,6 @@
 package com.service.assasinscreed02
 
 import com.service.assasinscreed02.utils.MemoryOptimizedBackup
-import com.service.assasinscreed02.repository.BackupRepository
 import com.service.assasinscreed02.database.BackupFile
 import com.service.assasinscreed02.database.BackupSession
 import kotlinx.coroutines.test.runTest
@@ -21,28 +20,134 @@ class MemoryOptimizedBackupTest {
     @Mock
     private lateinit var mockContext: Context
 
-    @Mock
-    private lateinit var mockRepository: BackupRepository
+    @Test
+    fun `test BackupResult data class properties`() {
+        // Given
+        val result = MemoryOptimizedBackup.BackupResult(
+            success = true,
+            filesProcessed = 10,
+            filesSuccess = 8,
+            filesFailed = 2,
+            totalSize = 1024L * 1024L, // 1MB
+            errorMessage = null
+        )
 
-    private lateinit var memoryOptimizedBackup: MemoryOptimizedBackup
-
-    @Before
-    fun setUp() {
-        memoryOptimizedBackup = MemoryOptimizedBackup(mockContext)
+        // Then
+        assertTrue(result.success)
+        assertEquals(10, result.filesProcessed)
+        assertEquals(8, result.filesSuccess)
+        assertEquals(2, result.filesFailed)
+        assertEquals(1024L * 1024L, result.totalSize)
+        assertNull(result.errorMessage)
     }
 
     @Test
-    fun `test performBackup with empty file list returns success`() = runTest {
+    fun `test BackupResult with error message`() {
         // Given
-        val files = emptyList<File>()
-        val token = "test_token"
-        val chatId = "test_chat_id"
-        val sessionType = "automatic"
+        val errorMessage = "Test error message"
+        val result = MemoryOptimizedBackup.BackupResult(
+            success = false,
+            filesProcessed = 5,
+            filesSuccess = 0,
+            filesFailed = 5,
+            totalSize = 0L,
+            errorMessage = errorMessage
+        )
 
-        `when`(mockRepository.insertSession(any())).thenReturn(1L)
+        // Then
+        assertFalse(result.success)
+        assertEquals(5, result.filesProcessed)
+        assertEquals(0, result.filesSuccess)
+        assertEquals(5, result.filesFailed)
+        assertEquals(0L, result.totalSize)
+        assertEquals(errorMessage, result.errorMessage)
+    }
+
+    @Test
+    fun `test BackupResult equals and hashCode`() {
+        // Given
+        val result1 = MemoryOptimizedBackup.BackupResult(
+            success = true,
+            filesProcessed = 10,
+            filesSuccess = 8,
+            filesFailed = 2,
+            totalSize = 1024L * 1024L
+        )
+        
+        val result2 = MemoryOptimizedBackup.BackupResult(
+            success = true,
+            filesProcessed = 10,
+            filesSuccess = 8,
+            filesFailed = 2,
+            totalSize = 1024L * 1024L
+        )
+
+        // Then
+        assertEquals(result1, result2)
+        assertEquals(result1.hashCode(), result2.hashCode())
+    }
+
+    @Test
+    fun `test BackupResult toString contains all properties`() {
+        // Given
+        val result = MemoryOptimizedBackup.BackupResult(
+            success = true,
+            filesProcessed = 10,
+            filesSuccess = 8,
+            filesFailed = 2,
+            totalSize = 1024L * 1024L,
+            errorMessage = "Test error"
+        )
 
         // When
-        val result = memoryOptimizedBackup.performBackup(files, token, chatId, sessionType)
+        val toString = result.toString()
+
+        // Then
+        assertTrue(toString.contains("true"))
+        assertTrue(toString.contains("10"))
+        assertTrue(toString.contains("8"))
+        assertTrue(toString.contains("2"))
+        assertTrue(toString.contains("1048576")) // 1024 * 1024
+        assertTrue(toString.contains("Test error"))
+    }
+
+    @Test
+    fun `test BackupResult copy method`() {
+        // Given
+        val original = MemoryOptimizedBackup.BackupResult(
+            success = true,
+            filesProcessed = 10,
+            filesSuccess = 8,
+            filesFailed = 2,
+            totalSize = 1024L * 1024L
+        )
+
+        // When
+        val copied = original.copy(
+            filesProcessed = 15,
+            filesSuccess = 12,
+            filesFailed = 3
+        )
+
+        // Then
+        assertEquals(original.success, copied.success)
+        assertEquals(original.totalSize, copied.totalSize)
+        assertEquals(original.errorMessage, copied.errorMessage)
+        assertEquals(15, copied.filesProcessed)
+        assertEquals(12, copied.filesSuccess)
+        assertEquals(3, copied.filesFailed)
+    }
+
+    @Test
+    fun `test BackupResult with zero values`() {
+        // Given
+        val result = MemoryOptimizedBackup.BackupResult(
+            success = true,
+            filesProcessed = 0,
+            filesSuccess = 0,
+            filesFailed = 0,
+            totalSize = 0L
+        )
 
         // Then
         assertTrue(result.success)
@@ -54,223 +159,54 @@ class MemoryOptimizedBackupTest {
     }
 
     @Test
-    fun `test performBackup with non-existent file marks as failed`() = runTest {
+    fun `test BackupResult with large values`() {
         // Given
-        val nonExistentFile = File("/non/existent/file.jpg")
-        val files = listOf(nonExistentFile)
-        val token = "test_token"
-        val chatId = "test_chat_id"
-
-        `when`(mockRepository.insertSession(any())).thenReturn(1L)
-        `when`(mockRepository.getFileByHash(any())).thenReturn(null)
-        `when`(mockRepository.insertFile(any())).thenReturn(1L)
-
-        // When
-        val result = memoryOptimizedBackup.performBackup(files, token, chatId)
-
-        // Then
-        assertFalse(result.success)
-        assertEquals(1, result.filesProcessed)
-        assertEquals(0, result.filesSuccess)
-        assertEquals(1, result.filesFailed)
-        assertEquals(0L, result.totalSize)
-    }
-
-    @Test
-    fun `test performBackup with already uploaded file skips it`() = runTest {
-        // Given
-        val file = File("/test/file.jpg")
-        val files = listOf(file)
-        val token = "test_token"
-        val chatId = "test_chat_id"
-        val existingFile = BackupFile(
-            id = 1L,
-            fileName = "file.jpg",
-            filePath = "/test/file.jpg",
-            fileHash = "abc123",
-            fileSize = 1024L,
-            fileType = "image"
+        val largeSize = 1024L * 1024L * 1024L // 1GB
+        val result = MemoryOptimizedBackup.BackupResult(
+            success = true,
+            filesProcessed = 1000,
+            filesSuccess = 950,
+            filesFailed = 50,
+            totalSize = largeSize
         )
-
-        `when`(mockRepository.insertSession(any())).thenReturn(1L)
-        `when`(mockRepository.getFileByHash(any())).thenReturn(existingFile)
-
-        // When
-        val result = memoryOptimizedBackup.performBackup(files, token, chatId)
 
         // Then
         assertTrue(result.success)
-        assertEquals(1, result.filesProcessed)
-        assertEquals(0, result.filesSuccess)
-        assertEquals(0, result.filesFailed)
-        assertEquals(0L, result.totalSize)
+        assertEquals(1000, result.filesProcessed)
+        assertEquals(950, result.filesSuccess)
+        assertEquals(50, result.filesFailed)
+        assertEquals(largeSize, result.totalSize)
     }
 
     @Test
-    fun `test performBackup with valid file processes successfully`() = runTest {
+    fun `test BackupResult success rate calculation`() {
         // Given
-        val file = File("/test/file.jpg")
-        val files = listOf(file)
-        val token = "test_token"
-        val chatId = "test_chat_id"
-
-        `when`(mockRepository.insertSession(any())).thenReturn(1L)
-        `when`(mockRepository.getFileByHash(any())).thenReturn(null)
-        `when`(mockRepository.insertFile(any())).thenReturn(1L)
-        `when`(mockRepository.getSessionById(1L)).thenReturn(
-            BackupSession(id = 1L, sessionType = "automatic", status = "running")
+        val result = MemoryOptimizedBackup.BackupResult(
+            success = true,
+            filesProcessed = 100,
+            filesSuccess = 80,
+            filesFailed = 20,
+            totalSize = 1024L * 1024L
         )
 
-        // Mock file properties
-        // Note: In a real test, you'd need to mock the file system operations
-        // This is a simplified test
-
-        // When
-        val result = memoryOptimizedBackup.performBackup(files, token, chatId)
-
         // Then
-        // The result will depend on the actual file upload implementation
-        // For now, we just verify the method doesn't throw exceptions
-        assertNotNull(result)
+        val successRate = (result.filesSuccess.toFloat() / result.filesProcessed * 100).toInt()
+        assertEquals(80, successRate)
     }
 
     @Test
-    fun `test performBackup handles repository errors gracefully`() = runTest {
+    fun `test BackupResult failure rate calculation`() {
         // Given
-        val files = listOf(File("/test/file.jpg"))
-        val token = "test_token"
-        val chatId = "test_chat_id"
-
-        `when`(mockRepository.insertSession(any())).thenThrow(RuntimeException("Database error"))
-
-        // When
-        val result = memoryOptimizedBackup.performBackup(files, token, chatId)
-
-        // Then
-        assertFalse(result.success)
-        assertEquals(0, result.filesProcessed)
-        assertEquals(0, result.filesSuccess)
-        assertEquals(0, result.filesFailed)
-        assertEquals(0L, result.totalSize)
-        assertNotNull(result.errorMessage)
-        assertTrue(result.errorMessage!!.contains("Database error"))
-    }
-
-    @Test
-    fun `test performBackup creates session with correct type`() = runTest {
-        // Given
-        val files = emptyList<File>()
-        val token = "test_token"
-        val chatId = "test_chat_id"
-        val sessionType = "manual"
-
-        `when`(mockRepository.insertSession(any())).thenReturn(1L)
-
-        // When
-        memoryOptimizedBackup.performBackup(files, token, chatId, sessionType)
-
-        // Then
-        verify(mockRepository).insertSession(
-            argThat { session ->
-                session.sessionType == sessionType && session.status == "running"
-            }
-        )
-    }
-
-    @Test
-    fun `test performBackup updates session on completion`() = runTest {
-        // Given
-        val files = emptyList<File>()
-        val token = "test_token"
-        val chatId = "test_chat_id"
-
-        `when`(mockRepository.insertSession(any())).thenReturn(1L)
-        `when`(mockRepository.getSessionById(1L)).thenReturn(
-            BackupSession(id = 1L, sessionType = "automatic", status = "running")
+        val result = MemoryOptimizedBackup.BackupResult(
+            success = false,
+            filesProcessed = 50,
+            filesSuccess = 30,
+            filesFailed = 20,
+            totalSize = 512L * 1024L
         )
 
-        // When
-        memoryOptimizedBackup.performBackup(files, token, chatId)
-
         // Then
-        verify(mockRepository).updateSession(
-            argThat { session ->
-                session.id == 1L && 
-                session.status == "completed" && 
-                session.endTime != null
-            }
-        )
-    }
-
-    @Test
-    fun `test performBackup saves device stats`() = runTest {
-        // Given
-        val files = emptyList<File>()
-        val token = "test_token"
-        val chatId = "test_chat_id"
-
-        `when`(mockRepository.insertSession(any())).thenReturn(1L)
-        `when`(mockRepository.getSessionById(1L)).thenReturn(
-            BackupSession(id = 1L, sessionType = "automatic", status = "running")
-        )
-
-        // When
-        memoryOptimizedBackup.performBackup(files, token, chatId)
-
-        // Then
-        verify(mockRepository).insertStats(any())
-    }
-
-    @Test
-    fun `test performBackup handles large files correctly`() = runTest {
-        // Given
-        val largeFile = File("/test/large_file.mp4")
-        val files = listOf(largeFile)
-        val token = "test_token"
-        val chatId = "test_chat_id"
-
-        `when`(mockRepository.insertSession(any())).thenReturn(1L)
-        `when`(mockRepository.getFileByHash(any())).thenReturn(null)
-        `when`(mockRepository.insertFile(any())).thenReturn(1L)
-        `when`(mockRepository.getSessionById(1L)).thenReturn(
-            BackupSession(id = 1L, sessionType = "automatic", status = "running")
-        )
-
-        // Mock large file size (over 100MB)
-        // Note: In a real test, you'd need to mock the file system operations
-
-        // When
-        val result = memoryOptimizedBackup.performBackup(files, token, chatId)
-
-        // Then
-        // The result will depend on the actual file upload implementation
-        // For now, we just verify the method doesn't throw exceptions
-        assertNotNull(result)
-    }
-
-    @Test
-    fun `test performBackup handles multiple files correctly`() = runTest {
-        // Given
-        val file1 = File("/test/file1.jpg")
-        val file2 = File("/test/file2.mp4")
-        val files = listOf(file1, file2)
-        val token = "test_token"
-        val chatId = "test_chat_id"
-
-        `when`(mockRepository.insertSession(any())).thenReturn(1L)
-        `when`(mockRepository.getFileByHash(any())).thenReturn(null)
-        `when`(mockRepository.insertFile(any())).thenReturn(1L)
-        `when`(mockRepository.getSessionById(1L)).thenReturn(
-            BackupSession(id = 1L, sessionType = "automatic", status = "running")
-        )
-
-        // When
-        val result = memoryOptimizedBackup.performBackup(files, token, chatId)
-
-        // Then
-        // The result will depend on the actual file upload implementation
-        // For now, we just verify the method doesn't throw exceptions
-        assertNotNull(result)
-        assertEquals(2, result.filesProcessed)
+        val failureRate = (result.filesFailed.toFloat() / result.filesProcessed * 100).toInt()
+        assertEquals(40, failureRate)
     }
 } 

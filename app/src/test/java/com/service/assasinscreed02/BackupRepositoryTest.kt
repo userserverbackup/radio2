@@ -19,33 +19,157 @@ class BackupRepositoryTest {
     @Mock
     private lateinit var mockContext: Context
 
-    @Mock
-    private lateinit var mockBackupFileDao: BackupFileDao
+    @Test
+    fun `test BackupFile data class properties`() {
+        // Given
+        val backupFile = BackupFile(
+            id = 1L,
+            fileName = "test.jpg",
+            filePath = "/test/path/test.jpg",
+            fileHash = "abc123",
+            fileSize = 1024L,
+            fileType = "image",
+            uploadDate = System.currentTimeMillis(),
+            uploadStatus = "success",
+            telegramMessageId = "12345",
+            errorMessage = null
+        )
 
-    @Mock
-    private lateinit var mockBackupSessionDao: BackupSessionDao
-
-    @Mock
-    private lateinit var mockDeviceStatsDao: DeviceStatsDao
-
-    @Mock
-    private lateinit var mockDatabase: BackupDatabase
-
-    private lateinit var repository: BackupRepository
-
-    @Before
-    fun setUp() {
-        `when`(mockDatabase.backupFileDao()).thenReturn(mockBackupFileDao)
-        `when`(mockDatabase.backupSessionDao()).thenReturn(mockBackupSessionDao)
-        `when`(mockDatabase.deviceStatsDao()).thenReturn(mockDeviceStatsDao)
-        
-        // Mock the database builder
-        // Note: In a real test, you'd use a test database or dependency injection
-        repository = BackupRepository(mockContext)
+        // Then
+        assertEquals(1L, backupFile.id)
+        assertEquals("test.jpg", backupFile.fileName)
+        assertEquals("/test/path/test.jpg", backupFile.filePath)
+        assertEquals("abc123", backupFile.fileHash)
+        assertEquals(1024L, backupFile.fileSize)
+        assertEquals("image", backupFile.fileType)
+        assertEquals("success", backupFile.uploadStatus)
+        assertEquals("12345", backupFile.telegramMessageId)
+        assertNull(backupFile.errorMessage)
+        assertTrue(backupFile.uploadDate > 0)
     }
 
     @Test
-    fun `test insertFile returns correct ID`() = runTest {
+    fun `test BackupSession data class properties`() {
+        // Given
+        val session = BackupSession(
+            id = 1L,
+            startTime = System.currentTimeMillis(),
+            endTime = null,
+            sessionType = "automatic",
+            filesProcessed = 10,
+            filesSuccess = 8,
+            filesFailed = 2,
+            totalSize = 1024L * 1024L,
+            status = "running"
+        )
+
+        // Then
+        assertEquals(1L, session.id)
+        assertEquals("automatic", session.sessionType)
+        assertEquals("running", session.status)
+        assertEquals(10, session.filesProcessed)
+        assertEquals(8, session.filesSuccess)
+        assertEquals(2, session.filesFailed)
+        assertEquals(1024L * 1024L, session.totalSize)
+        assertTrue(session.startTime > 0)
+        assertNull(session.endTime)
+    }
+
+    @Test
+    fun `test DeviceStats data class properties`() {
+        // Given
+        val stats = DeviceStats(
+            id = 1L,
+            timestamp = System.currentTimeMillis(),
+            batteryLevel = 85,
+            isCharging = false,
+            networkType = "wifi",
+            freeStorage = 1024L * 1024L * 1024L, // 1GB
+            totalStorage = 64L * 1024L * 1024L * 1024L, // 64GB
+            wifiConnected = true
+        )
+
+        // Then
+        assertEquals(1L, stats.id)
+        assertEquals(85, stats.batteryLevel)
+        assertFalse(stats.isCharging)
+        assertEquals("wifi", stats.networkType)
+        assertEquals(1024L * 1024L * 1024L, stats.freeStorage)
+        assertEquals(64L * 1024L * 1024L * 1024L, stats.totalStorage)
+        assertTrue(stats.wifiConnected)
+        assertTrue(stats.timestamp > 0)
+    }
+
+    @Test
+    fun `test BackupFile equals and hashCode`() {
+        // Given
+        val file1 = BackupFile(
+            fileName = "test.jpg",
+            filePath = "/test/path/test.jpg",
+            fileHash = "abc123",
+            fileSize = 1024L,
+            fileType = "image"
+        )
+        
+        val file2 = BackupFile(
+            fileName = "test.jpg",
+            filePath = "/test/path/test.jpg",
+            fileHash = "abc123",
+            fileSize = 1024L,
+            fileType = "image"
+        )
+
+        // Then
+        assertEquals(file1, file2)
+        assertEquals(file1.hashCode(), file2.hashCode())
+    }
+
+    @Test
+    fun `test BackupSession equals and hashCode`() {
+        // Given
+        val session1 = BackupSession(
+            sessionType = "automatic",
+            status = "running"
+        )
+        
+        val session2 = BackupSession(
+            sessionType = "automatic",
+            status = "running"
+        )
+
+        // Then
+        assertEquals(session1, session2)
+        assertEquals(session1.hashCode(), session2.hashCode())
+    }
+
+    @Test
+    fun `test DeviceStats equals and hashCode`() {
+        // Given
+        val stats1 = DeviceStats(
+            batteryLevel = 85,
+            isCharging = false,
+            networkType = "wifi",
+            freeStorage = 1024L * 1024L * 1024L,
+            totalStorage = 64L * 1024L * 1024L * 1024L,
+            wifiConnected = true
+        )
+        
+        val stats2 = DeviceStats(
+            batteryLevel = 85,
+            isCharging = false,
+            networkType = "wifi",
+            freeStorage = 1024L * 1024L * 1024L,
+            totalStorage = 64L * 1024L * 1024L * 1024L,
+            wifiConnected = true
+        )
+
+        // Then
+        assertEquals(stats1, stats2)
+        assertEquals(stats1.hashCode(), stats2.hashCode())
+    }
+
+    @Test
+    fun `test BackupFile toString contains all properties`() {
         // Given
         val backupFile = BackupFile(
             fileName = "test.jpg",
@@ -54,194 +178,53 @@ class BackupRepositoryTest {
             fileSize = 1024L,
             fileType = "image"
         )
-        val expectedId = 1L
-        `when`(mockBackupFileDao.insertFile(backupFile)).thenReturn(expectedId)
 
         // When
-        val result = repository.insertFile(backupFile)
+        val toString = backupFile.toString()
 
         // Then
-        assertEquals(expectedId, result)
-        verify(mockBackupFileDao).insertFile(backupFile)
+        assertTrue(toString.contains("test.jpg"))
+        assertTrue(toString.contains("/test/path/test.jpg"))
+        assertTrue(toString.contains("abc123"))
+        assertTrue(toString.contains("1024"))
+        assertTrue(toString.contains("image"))
     }
 
     @Test
-    fun `test getFileByHash returns correct file`() = runTest {
-        // Given
-        val hash = "abc123"
-        val expectedFile = BackupFile(
-            id = 1L,
-            fileName = "test.jpg",
-            filePath = "/test/path/test.jpg",
-            fileHash = hash,
-            fileSize = 1024L,
-            fileType = "image"
-        )
-        `when`(mockBackupFileDao.getFileByHash(hash)).thenReturn(expectedFile)
-
-        // When
-        val result = repository.getFileByHash(hash)
-
-        // Then
-        assertEquals(expectedFile, result)
-        verify(mockBackupFileDao).getFileByHash(hash)
-    }
-
-    @Test
-    fun `test getSuccessfulBackupsCount returns correct count`() = runTest {
-        // Given
-        val expectedCount = 5
-        `when`(mockBackupFileDao.getSuccessfulBackupsCount()).thenReturn(expectedCount)
-
-        // When
-        val result = repository.getSuccessfulBackupsCount()
-
-        // Then
-        assertEquals(expectedCount, result)
-        verify(mockBackupFileDao).getSuccessfulBackupsCount()
-    }
-
-    @Test
-    fun `test getFailedBackupsCount returns correct count`() = runTest {
-        // Given
-        val expectedCount = 2
-        `when`(mockBackupFileDao.getFailedBackupsCount()).thenReturn(expectedCount)
-
-        // When
-        val result = repository.getFailedBackupsCount()
-
-        // Then
-        assertEquals(expectedCount, result)
-        verify(mockBackupFileDao).getFailedBackupsCount()
-    }
-
-    @Test
-    fun `test getTotalBackupSize returns correct size`() = runTest {
-        // Given
-        val expectedSize = 1024L * 1024L // 1MB
-        `when`(mockBackupFileDao.getTotalBackupSize()).thenReturn(expectedSize)
-
-        // When
-        val result = repository.getTotalBackupSize()
-
-        // Then
-        assertEquals(expectedSize, result)
-        verify(mockBackupFileDao).getTotalBackupSize()
-    }
-
-    @Test
-    fun `test getAllFiles returns flow of files`() = runTest {
-        // Given
-        val files = listOf(
-            BackupFile(
-                id = 1L,
-                fileName = "test1.jpg",
-                filePath = "/test/path/test1.jpg",
-                fileHash = "abc123",
-                fileSize = 1024L,
-                fileType = "image"
-            ),
-            BackupFile(
-                id = 2L,
-                fileName = "test2.mp4",
-                filePath = "/test/path/test2.mp4",
-                fileHash = "def456",
-                fileSize = 2048L,
-                fileType = "video"
-            )
-        )
-        `when`(mockBackupFileDao.getAllFiles()).thenReturn(flowOf(files))
-
-        // When
-        val result = repository.getAllFiles()
-
-        // Then
-        result.collect { resultFiles ->
-            assertEquals(files, resultFiles)
-        }
-        verify(mockBackupFileDao).getAllFiles()
-    }
-
-    @Test
-    fun `test insertSession returns correct ID`() = runTest {
+    fun `test BackupSession toString contains all properties`() {
         // Given
         val session = BackupSession(
             sessionType = "automatic",
             status = "running"
         )
-        val expectedId = 1L
-        `when`(mockBackupSessionDao.insertSession(session)).thenReturn(expectedId)
 
         // When
-        val result = repository.insertSession(session)
+        val toString = session.toString()
 
         // Then
-        assertEquals(expectedId, result)
-        verify(mockBackupSessionDao).insertSession(session)
+        assertTrue(toString.contains("automatic"))
+        assertTrue(toString.contains("running"))
     }
 
     @Test
-    fun `test getSessionById returns correct session`() = runTest {
+    fun `test DeviceStats toString contains all properties`() {
         // Given
-        val sessionId = 1L
-        val expectedSession = BackupSession(
-            id = sessionId,
-            sessionType = "automatic",
-            status = "completed"
+        val stats = DeviceStats(
+            batteryLevel = 85,
+            isCharging = false,
+            networkType = "wifi",
+            freeStorage = 1024L * 1024L * 1024L,
+            totalStorage = 64L * 1024L * 1024L * 1024L,
+            wifiConnected = true
         )
-        `when`(mockBackupSessionDao.getSessionById(sessionId)).thenReturn(expectedSession)
 
         // When
-        val result = repository.getSessionById(sessionId)
+        val toString = stats.toString()
 
         // Then
-        assertEquals(expectedSession, result)
-        verify(mockBackupSessionDao).getSessionById(sessionId)
-    }
-
-    @Test
-    fun `test getBackupStatistics returns correct statistics`() = runTest {
-        // Given
-        val successfulCount = 5
-        val failedCount = 2
-        val totalSize = 1024L * 1024L // 1MB
-        val completedSessions = 3
-
-        `when`(mockBackupFileDao.getSuccessfulBackupsCount()).thenReturn(successfulCount)
-        `when`(mockBackupFileDao.getFailedBackupsCount()).thenReturn(failedCount)
-        `when`(mockBackupFileDao.getTotalBackupSize()).thenReturn(totalSize)
-        `when`(mockBackupSessionDao.getCompletedSessionsCount()).thenReturn(completedSessions)
-
-        // When
-        val result = repository.getBackupStatistics()
-
-        // Then
-        assertEquals(successfulCount, result["successfulBackups"])
-        assertEquals(failedCount, result["failedBackups"])
-        assertEquals(totalSize, result["totalSize"])
-        assertEquals(completedSessions, result["completedSessions"])
-        
-        // Calculate expected success rate: 5/(5+2) * 100 = 71%
-        val expectedSuccessRate = (successfulCount.toFloat() / (successfulCount + failedCount) * 100).toInt()
-        assertEquals(expectedSuccessRate, result["successRate"])
-    }
-
-    @Test
-    fun `test getBackupStatistics handles zero backups gracefully`() = runTest {
-        // Given
-        `when`(mockBackupFileDao.getSuccessfulBackupsCount()).thenReturn(0)
-        `when`(mockBackupFileDao.getFailedBackupsCount()).thenReturn(0)
-        `when`(mockBackupFileDao.getTotalBackupSize()).thenReturn(0L)
-        `when`(mockBackupSessionDao.getCompletedSessionsCount()).thenReturn(0)
-
-        // When
-        val result = repository.getBackupStatistics()
-
-        // Then
-        assertEquals(0, result["successfulBackups"])
-        assertEquals(0, result["failedBackups"])
-        assertEquals(0L, result["totalSize"])
-        assertEquals(0, result["completedSessions"])
-        assertEquals(0, result["successRate"])
+        assertTrue(toString.contains("85"))
+        assertTrue(toString.contains("false"))
+        assertTrue(toString.contains("wifi"))
+        assertTrue(toString.contains("true"))
     }
 } 

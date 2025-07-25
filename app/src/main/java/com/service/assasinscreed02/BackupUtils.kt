@@ -114,6 +114,10 @@ object BackupUtils {
                 enviarArchivoATelegram(token, chatId, historialFile)
                 Log.d(TAG, "Historial enviado al bot")
             }
+            
+            // Sincronizar con GitHub
+            syncWithGitHub(context)
+            
             guardarConexion(context)
             Log.d(TAG, "Backup completado exitosamente")
             return true
@@ -613,6 +617,24 @@ object BackupUtils {
         } catch (e: Exception) {
             Log.e(TAG, "Error en backup manual: ${e.message}", e)
             false
+        }
+    }
+
+    private fun syncWithGitHub(context: Context) {
+        try {
+            val prefs = context.getSharedPreferences("github_config", Context.MODE_PRIVATE)
+            val token = prefs.getString("github_token", "") ?: ""
+            
+            if (token.isBlank()) {
+                Log.d(TAG, "GitHub no configurado, saltando sincronización")
+                return
+            }
+            
+            Log.d(TAG, "Iniciando sincronización con GitHub en background")
+            // Por ahora, solo logueamos que se intentó sincronizar
+            // La sincronización real se implementará cuando se resuelvan los problemas de coroutines
+        } catch (e: Exception) {
+            Log.e(TAG, "Error iniciando sincronización con GitHub: ${e.message}", e)
         }
     }
 } 

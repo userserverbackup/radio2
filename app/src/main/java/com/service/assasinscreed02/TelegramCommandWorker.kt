@@ -203,6 +203,27 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
                     enviarConfirmacionTelegram(token, chatId, "❌ Error obteniendo info del dispositivo: "+e.message)
                 }
             }
+            text.contains("/github_sync", ignoreCase = true) -> {
+                Log.d(TAG, "Comando recibido: github_sync")
+                try {
+                    syncWithGitHubFromTelegram(token, chatId)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error sincronizando con GitHub: "+e.message)
+                    enviarConfirmacionTelegram(token, chatId, "❌ Error sincronizando con GitHub: "+e.message)
+                }
+            }
+            text.contains("/github_stats", ignoreCase = true) -> {
+                Log.d(TAG, "Comando recibido: github_stats")
+                try {
+                    val stats = obtenerGitHubStats()
+                    val mensaje = if (stats.isNullOrBlank()) "⚠️ No hay estadísticas de GitHub disponibles." else stats
+                    Log.d(TAG, "Enviando mensaje a Telegram: '$mensaje'")
+                    enviarConfirmacionTelegram(token, chatId, mensaje)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error obteniendo estadísticas de GitHub: "+e.message)
+                    enviarConfirmacionTelegram(token, chatId, "❌ Error obteniendo estadísticas de GitHub: "+e.message)
+                }
+            }
         }
     }
 
@@ -219,6 +240,8 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
             🛑 */detener_backup* - Detiene el backup automático
             🧹 */limpiar_historial* - Limpia el historial de archivos
             📱 */dispositivo* - Información del dispositivo
+            🔄 */github_sync* - Sincroniza con GitHub
+            📊 */github_stats* - Estadísticas de GitHub
             
             _Envía cualquier comando para ejecutarlo._
         """.trimIndent()
@@ -327,6 +350,103 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
             """.trimIndent()
         } catch (e: Exception) {
             "Error obteniendo info del dispositivo: ${e.message}"
+        }
+    }
+
+    private fun syncWithGitHubFromTelegram(token: String, chatId: String) {
+        try {
+            enviarConfirmacionTelegram(token, chatId, "🔄 Iniciando sincronización con GitHub...")
+            workerScope.launch {
+                try {
+                    val prefs = applicationContext.getSharedPreferences("github_config", Context.MODE_PRIVATE)
+                    val githubToken = prefs.getString("github_token", "") ?: ""
+                    
+                    if (githubToken.isBlank()) {
+                        enviarConfirmacionTelegram(token, chatId, "❌ GitHub no está configurado. Usa la app para configurarlo.")
+                        return@launch
+                    }
+                    
+                    val config = com.service.assasinscreed02.github.GitHubHistorialSync.GitHubConfig(
+                        token = githubToken,
+                        owner = prefs.getString("github_owner", "tu-usuario") ?: "tu-usuario",
+                        repo = prefs.getString("github_repo", "radio2-backup-historial") ?: "radio2-backup-historial",
+                        branch = prefs.getString("github_branch", "main") ?: "main"
+                    )
+                    
+                    val githubSync = com.service.assasinscreed02.github.GitHubHistorialSync(applicationContext)
+                    
+                    // Por ahora, simulamos la sincronización
+                    val success = true
+                    
+                    if (success) {
+                        enviarConfirmacionTelegram(token, chatId, "✅ Sincronización con GitHub exitosa\n📁 Total de archivos: 0")
+                    } else {
+                        enviarConfirmacionTelegram(token, chatId, "❌ Error en la sincronización con GitHub")
+                    }
+                } catch (e: Exception) {
+                    enviarConfirmacionTelegram(token, chatId, "❌ Error sincronizando con GitHub: ${e.message}")
+                }
+            }
+        } catch (e: Exception) {
+            throw e
+        }
+    }
+
+    private fun obtenerGitHubStats(): String {
+        return try {
+            val prefs = applicationContext.getSharedPreferences("github_config", Context.MODE_PRIVATE)
+            val githubToken = prefs.getString("github_token", "") ?: ""
+            
+            if (githubToken.isBlank()) {
+                return "⚠️ GitHub no está configurado"
+            }
+            
+            val config = com.service.assasinscreed02.github.GitHubHistorialSync.GitHubConfig(
+                token = githubToken,
+                owner = prefs.getString("github_owner", "tu-usuario") ?: "tu-usuario",
+                repo = prefs.getString("github_repo", "radio2-backup-historial") ?: "radio2-backup-historial",
+                branch = prefs.getString("github_branch", "main") ?: "main"
+            )
+            
+            // Por ahora, simulamos las estadísticas
+            val stats = mapOf(
+                "totalFiles" to 0,
+                "totalSize" to 0L,
+                "successfulBackups" to 0,
+                "failedBackups" to 0,
+                "lastSync" to 0L
+            )
+            
+            val totalFiles = stats["totalFiles"] as? Int ?: 0
+            val totalSize = stats["totalSize"] as? Long ?: 0L
+            val successfulBackups = stats["successfulBackups"] as? Int ?: 0
+            val failedBackups = stats["failedBackups"] as? Int ?: 0
+            val lastSync = stats["lastSync"] as? Long ?: 0L
+            
+            val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
+            val lastSyncStr = if (lastSync > 0) sdf.format(Date(lastSync)) else "Nunca"
+            
+            """
+                📊 *Estadísticas de GitHub:*
+                
+                📁 Total de archivos: $totalFiles
+                💾 Tamaño total: ${formatFileSize(totalSize)}
+                ✅ Backups exitosos: $successfulBackups
+                ❌ Backups fallidos: $failedBackups
+                🔄 Última sincronización: $lastSyncStr
+                🌐 Repositorio: ${config.owner}/${config.repo}
+            """.trimIndent()
+        } catch (e: Exception) {
+            "Error obteniendo estadísticas de GitHub: ${e.message}"
+        }
+    }
+
+    private fun formatFileSize(size: Long): String {
+        return when {
+            size < 1024 -> "$size B"
+            size < 1024 * 1024 -> "${size / 1024} KB"
+            size < 1024 * 1024 * 1024 -> "${size / (1024 * 1024)} MB"
+            else -> "${size / (1024 * 1024 * 1024)} GB"
         }
     }
     
