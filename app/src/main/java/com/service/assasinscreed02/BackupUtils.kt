@@ -8,6 +8,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import java.io.File
+import java.io.FileInputStream
 import java.security.MessageDigest
 
 object BackupUtils {
@@ -223,11 +224,17 @@ object BackupUtils {
     private fun calcularHashArchivo(file: File): String {
         return try {
             val md = MessageDigest.getInstance("MD5")
-            val bytes = file.readBytes()
-            val digest = md.digest(bytes)
+            val buffer = ByteArray(8192) // 8KB buffer
+            var bytesRead: Int
+            FileInputStream(file).use { fis ->
+                while (fis.read(buffer).also { bytesRead = it } != -1) {
+                    md.update(buffer, 0, bytesRead)
+                }
+            }
+            val digest = md.digest()
             digest.joinToString("") { "%02x".format(it) }
         } catch (e: Exception) {
-            Log.e(TAG, "Error calculando hash de ${file.name}: ${e.message}")
+            Log.e(TAG, "Error calculando hash de "+file.name+": "+e.message)
             file.absolutePath + "_" + file.lastModified()
         }
     }
