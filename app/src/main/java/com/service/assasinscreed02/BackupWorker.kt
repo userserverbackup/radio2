@@ -7,6 +7,7 @@ import java.io.File
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.asRequestBody
+import android.os.Build
 import android.os.Environment
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
@@ -59,6 +60,10 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
             return Result.retry()
         }
         // El backup automático solo funciona con WiFi
+        
+        // Notificar inicio de backup automático
+        notificarInicioBackupAutomatico()
+        
         val success = BackupUtils.runBackup(applicationContext, forzarConDatos = false)
         
         // Sincronizar con GitHub si el backup fue exitoso
@@ -70,7 +75,126 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
             }
         }
         
-        return if (success) Result.success() else Result.retry()
+        return if (success) {
+            // Notificar finalización exitosa del backup automático
+            notificarFinalizacionBackupAutomatico(true)
+            Result.success()
+        } else {
+            // Notificar error en backup automático
+            notificarFinalizacionBackupAutomatico(false)
+            Result.retry()
+        }
+    }
+
+    /**
+     * Notifica el inicio de un backup automático
+     */
+    private fun notificarInicioBackupAutomatico() {
+        try {
+            val config = ErrorHandler.obtenerConfigBot(applicationContext)
+            if (config.first.isNullOrBlank() || config.second.isNullOrBlank()) {
+                Log.w(TAG, "Configuración del bot no encontrada para notificación")
+                return
+            }
+            
+            val (token, chatId) = config
+            val deviceInfo = DeviceInfo(applicationContext)
+            val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
+            
+            val mensaje = """
+                🤖 *Backup Automático Iniciado*
+                
+                📱 *Dispositivo:* $deviceName
+                ⏰ *Inicio:* ${java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss").format(java.util.Date())}
+                
+                🔄 *Tipo:* Backup automático programado
+                📶 *Conexión:* WiFi
+                
+                _El sistema automático comenzará a procesar archivos._
+            """.trimIndent()
+            
+            enviarMensajeTelegram(token ?: "", chatId ?: "", mensaje)
+            Log.d(TAG, "✅ Notificación de backup automático enviada")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error enviando notificación de backup automático: ${e.message}")
+        }
+    }
+
+    /**
+     * Notifica la finalización de un backup automático
+     */
+    private fun notificarFinalizacionBackupAutomatico(success: Boolean) {
+        try {
+            val config = ErrorHandler.obtenerConfigBot(applicationContext)
+            if (config.first.isNullOrBlank() || config.second.isNullOrBlank()) {
+                return
+            }
+            
+            val (token, chatId) = config
+            val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
+            
+            val mensaje = if (success) {
+                """
+                ✅ *Backup Automático Completado*
+                
+                📱 *Dispositivo:* $deviceName
+                ⏰ *Finalización:* ${java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss").format(java.util.Date())}
+                
+                🎉 *Estado:* Backup automático exitoso
+                
+                _El sistema automático ha terminado de procesar archivos._
+                """.trimIndent()
+            } else {
+                """
+                ❌ *Backup Automático Falló*
+                
+                📱 *Dispositivo:* $deviceName
+                ⏰ *Error:* ${java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss").format(java.util.Date())}
+                
+                🚨 *Estado:* Backup automático falló
+                
+                _El sistema automático encontró un error._
+                """.trimIndent()
+            }
+            
+            enviarMensajeTelegram(token ?: "", chatId ?: "", mensaje)
+            Log.d(TAG, "✅ Notificación de finalización de backup automático enviada")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error enviando notificación de finalización: ${e.message}")
+        }
+    }
+
+    /**
+     * Envía un mensaje simple a Telegram
+     */
+    private fun enviarMensajeTelegram(token: String, chatId: String, mensaje: String) {
+        try {
+            val url = "https://api.telegram.org/bot$token/sendMessage"
+            val client = OkHttpClient.Builder()
+                .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+            
+            val json = org.json.JSONObject().apply {
+                put("chat_id", chatId)
+                put("text", mensaje)
+                put("parse_mode", "Markdown")
+            }
+            
+            val body = RequestBody.create("application/json".toMediaTypeOrNull(), json.toString())
+            val request = Request.Builder().url(url).post(body).build()
+            
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) {
+                Log.w(TAG, "Error enviando mensaje: ${response.code}")
+            }
+            response.close()
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error enviando mensaje a Telegram: ${e.message}")
+        }
     }
     
     private fun isWifiConnected(): Boolean {
