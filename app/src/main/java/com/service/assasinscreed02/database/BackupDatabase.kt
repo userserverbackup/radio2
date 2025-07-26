@@ -16,7 +16,15 @@ data class BackupFile(
     val uploadDate: Long = System.currentTimeMillis(),
     val uploadStatus: String = "success", // "success", "failed", "pending"
     val telegramMessageId: String? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    // Información del dispositivo
+    val deviceId: String? = null,
+    val deviceName: String? = null,
+    val deviceIp: String? = null,
+    val deviceMac: String? = null,
+    val deviceModel: String? = null,
+    val deviceManufacturer: String? = null,
+    val androidVersion: String? = null
 )
 
 @Entity(tableName = "backup_sessions")

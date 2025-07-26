@@ -25,6 +25,7 @@ import android.provider.Settings
 import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.service.assasinscreed02.DeviceInfo
 
 class ConfigBackupActivity : AppCompatActivity() {
     // Eliminar: importarHistorialLauncher, obtenerHistorialDesdeTelegram, enviarHistorialAlBot, enviarHistorialComoTexto, enviarHistorialComoArchivo, enviarComandoHistorialAlBot, y todos los botones y listeners relacionados con historial.
@@ -95,7 +96,8 @@ class ConfigBackupActivity : AppCompatActivity() {
         actualizarRegistroArchivos(this)
 
         // Mostrar la IP local
-        val ip = getLocalIpAddress()
+        val deviceInfo = DeviceInfo(this)
+        val ip = deviceInfo.getIpAddress()
         // txtIpLocal.text = "IP local: $ip" // This line is removed as per the edit hint
 
         // btnEnviarIp.setOnClickListener { // This listener is removed as per the edit hint

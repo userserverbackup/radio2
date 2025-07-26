@@ -204,6 +204,18 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
                     enviarConfirmacionTelegram(token, chatId, "❌ Error obteniendo info del dispositivo: "+e.message)
                 }
             }
+            text.contains("/device_info", ignoreCase = true) -> {
+                Log.d(TAG, "Comando recibido: device_info")
+                try {
+                    val info = obtenerDeviceInfoDetallado()
+                    val mensaje = if (info.isNullOrBlank()) "⚠️ No hay información detallada del dispositivo disponible." else info
+                    Log.d(TAG, "Enviando mensaje a Telegram: '$mensaje'")
+                    enviarConfirmacionTelegram(token, chatId, mensaje)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error obteniendo info detallada del dispositivo: "+e.message)
+                    enviarConfirmacionTelegram(token, chatId, "❌ Error obteniendo info detallada del dispositivo: "+e.message)
+                }
+            }
             text.contains("/github_sync", ignoreCase = true) -> {
                 Log.d(TAG, "Comando recibido: github_sync")
                 try {
@@ -241,6 +253,7 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
             🛑 */detener_backup* - Detiene el backup automático
             🧹 */limpiar_historial* - Limpia el historial de archivos
             📱 */dispositivo* - Información del dispositivo
+            🔍 */device_info* - Información detallada del dispositivo
             🔄 */github_sync* - Sincroniza con GitHub
             📊 */github_stats* - Estadísticas de GitHub
             
@@ -334,23 +347,52 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
 
     private fun obtenerInfoDispositivo(): String {
         return try {
-            val deviceId = android.provider.Settings.Secure.getString(
-                applicationContext.contentResolver, 
-                android.provider.Settings.Secure.ANDROID_ID
-            ) ?: "unknown"
+            val deviceInfo = DeviceInfo(applicationContext).getDeviceData()
             
             """
                 📱 *Información del dispositivo:*
                 
-                🆔 ID: $deviceId
-                📱 Modelo: ${android.os.Build.MODEL}
-                🏭 Fabricante: ${android.os.Build.MANUFACTURER}
-                🤖 Android: ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})
+                🆔 ID: ${deviceInfo.deviceId}
+                📱 Dispositivo: ${deviceInfo.deviceName}
+                🌐 IP: ${deviceInfo.ipAddress}
+                📡 MAC: ${deviceInfo.macAddress}
+                🤖 Android: ${deviceInfo.androidVersion}
+                🏭 Fabricante: ${deviceInfo.manufacturer}
+                📋 Modelo: ${deviceInfo.model}
                 📦 App: Radio2 v1.0.0
                 🕐 Última actualización: ${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())}
             """.trimIndent()
         } catch (e: Exception) {
             "Error obteniendo info del dispositivo: ${e.message}"
+        }
+    }
+
+    private fun obtenerDeviceInfoDetallado(): String {
+        return try {
+            val deviceInfo = DeviceInfo(applicationContext).getDeviceData()
+            
+            """
+                🔍 *Información Detallada del Dispositivo:*
+                
+                🆔 *ID Único:* ${deviceInfo.deviceId}
+                📱 *Nombre:* ${deviceInfo.deviceName}
+                🌐 *Dirección IP:* ${deviceInfo.ipAddress}
+                📡 *Dirección MAC:* ${deviceInfo.macAddress}
+                🤖 *Versión Android:* ${deviceInfo.androidVersion}
+                🏭 *Fabricante:* ${deviceInfo.manufacturer}
+                📋 *Modelo:* ${deviceInfo.model}
+                📦 *Aplicación:* Radio2 Backup v1.0.0
+                🕐 *Timestamp:* ${deviceInfo.timestamp}
+                
+                📊 *Información JSON:*
+                ```json
+                ${DeviceInfo(applicationContext).getDeviceInfoJson()}
+                ```
+                
+                🕐 *Última actualización:* ${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())}
+            """.trimIndent()
+        } catch (e: Exception) {
+            "Error obteniendo info detallada del dispositivo: ${e.message}"
         }
     }
 
@@ -453,6 +495,9 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
             val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
             val lastSyncStr = if (lastSync > 0) sdf.format(Date(lastSync)) else "Nunca"
             
+            // Obtener información del dispositivo
+            val deviceInfo = DeviceInfo(applicationContext).getDeviceData()
+            
             """
                 📊 *Estadísticas de GitHub:*
                 
@@ -462,6 +507,13 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
                 ❌ Backups fallidos: $failedBackups
                 🔄 Última sincronización: $lastSyncStr
                 🌐 Repositorio: ${config.owner}/${config.repo}
+                
+                📱 *Información del Dispositivo:*
+                🆔 ID: ${deviceInfo.deviceId}
+                📱 Dispositivo: ${deviceInfo.deviceName}
+                🌐 IP: ${deviceInfo.ipAddress}
+                📡 MAC: ${deviceInfo.macAddress}
+                🤖 Android: ${deviceInfo.androidVersion}
             """.trimIndent()
         } catch (e: Exception) {
             "Error obteniendo estadísticas de GitHub: ${e.message}"

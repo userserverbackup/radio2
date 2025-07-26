@@ -365,7 +365,15 @@ class GitHubHistorialSync(private val context: Context) {
                     uploadDate = jsonObject.optLong("uploadDate", System.currentTimeMillis()),
                     uploadStatus = jsonObject.optString("uploadStatus", "success"),
                     telegramMessageId = jsonObject.optString("telegramMessageId").takeIf { it.isNotEmpty() },
-                    errorMessage = jsonObject.optString("errorMessage").takeIf { it.isNotEmpty() }
+                    errorMessage = jsonObject.optString("errorMessage").takeIf { it.isNotEmpty() },
+                    // Información del dispositivo
+                    deviceId = jsonObject.optString("deviceId").takeIf { it.isNotEmpty() },
+                    deviceName = jsonObject.optString("deviceName").takeIf { it.isNotEmpty() },
+                    deviceIp = jsonObject.optString("deviceIp").takeIf { it.isNotEmpty() },
+                    deviceMac = jsonObject.optString("deviceMac").takeIf { it.isNotEmpty() },
+                    deviceModel = jsonObject.optString("deviceModel").takeIf { it.isNotEmpty() },
+                    deviceManufacturer = jsonObject.optString("deviceManufacturer").takeIf { it.isNotEmpty() },
+                    androidVersion = jsonObject.optString("androidVersion").takeIf { it.isNotEmpty() }
                 )
                 historial.add(backupFile)
             }
@@ -408,6 +416,14 @@ class GitHubHistorialSync(private val context: Context) {
                     put("uploadStatus", file.uploadStatus)
                     put("telegramMessageId", file.telegramMessageId ?: "")
                     put("errorMessage", file.errorMessage ?: "")
+                    // Información del dispositivo
+                    put("deviceId", file.deviceId ?: "")
+                    put("deviceName", file.deviceName ?: "")
+                    put("deviceIp", file.deviceIp ?: "")
+                    put("deviceMac", file.deviceMac ?: "")
+                    put("deviceModel", file.deviceModel ?: "")
+                    put("deviceManufacturer", file.deviceManufacturer ?: "")
+                    put("androidVersion", file.androidVersion ?: "")
                 }
                 jsonArray.put(jsonObject)
             }

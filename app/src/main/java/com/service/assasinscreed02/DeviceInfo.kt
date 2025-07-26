@@ -1,89 +1,231 @@
 package com.service.assasinscreed02
 
-import androidx.room.Entity
-import androidx.room.PrimaryKey
 import android.content.Context
+import android.net.wifi.WifiManager
+import android.os.Build
+import android.provider.Settings
 import android.util.Log
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import org.json.JSONObject
+import java.net.NetworkInterface
+import java.util.*
 
-@Entity(tableName = "device_info")
-data class DeviceInfo(
-    @PrimaryKey(autoGenerate = true)
-    val id: Long = 0,
-    val deviceId: String,
-    val deviceName: String,
-    val androidVersion: String,
-    val appVersion: String,
-    val lastSeen: Long,
-    val isActive: Boolean = true,
-    val serverUrl: String,
-    val lastBackupTime: Long = 0,
-    val totalBackups: Int = 0,
-    val successfulBackups: Int = 0,
-    val failedBackups: Int = 0,
-    val deviceModel: String = "",
-    val manufacturer: String = "",
-    val screenResolution: String = "",
-    val batteryLevel: Int = 0,
-    val isCharging: Boolean = false,
-    val networkType: String = "",
-    val freeStorage: Long = 0,
-    val totalStorage: Long = 0,
-    // NUEVO CAMPO:
-    val ipAddress: String = ""
-)
+class DeviceInfo(private val context: Context) {
+    companion object {
+        private const val TAG = "DeviceInfo"
+    }
 
-fun getLocalIpAddress(): String {
-    try {
-        val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
-        while (interfaces.hasMoreElements()) {
-            val networkInterface = interfaces.nextElement()
-            val addresses = networkInterface.inetAddresses
-            while (addresses.hasMoreElements()) {
-                val address = addresses.nextElement()
-                if (!address.isLoopbackAddress && address.hostAddress.indexOf(':') < 0) {
-                    return address.hostAddress
+    data class DeviceData(
+        val deviceId: String,
+        val deviceName: String,
+        val ipAddress: String,
+        val macAddress: String,
+        val androidVersion: String,
+        val manufacturer: String,
+        val model: String,
+        val timestamp: Long = System.currentTimeMillis()
+    )
+
+    /**
+     * Obtiene un ID único del dispositivo
+     */
+    fun getDeviceId(): String {
+        return try {
+            val androidId = Settings.Secure.getString(
+                context.contentResolver,
+                Settings.Secure.ANDROID_ID
+            ) ?: "unknown"
+            
+            // Combinar con información adicional para mayor unicidad
+            val deviceInfo = "${Build.MANUFACTURER}_${Build.MODEL}_$androidId"
+            deviceInfo.replace(" ", "_").replace("-", "_")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error obteniendo device ID: ${e.message}")
+            "unknown_device_${System.currentTimeMillis()}"
+        }
+    }
+
+    /**
+     * Obtiene el nombre del dispositivo
+     */
+    fun getDeviceName(): String {
+        return try {
+            val manufacturer = Build.MANUFACTURER
+            val model = Build.MODEL
+            
+            if (model.startsWith(manufacturer, ignoreCase = true)) {
+                model
+            } else {
+                "$manufacturer $model"
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error obteniendo device name: ${e.message}")
+            "Unknown Device"
+        }
+    }
+
+    /**
+     * Obtiene la dirección IP del dispositivo
+     */
+    fun getIpAddress(): String {
+        return try {
+            // Intentar obtener IP de WiFi primero
+            val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            if (wifiManager.isWifiEnabled) {
+                @Suppress("DEPRECATION")
+                val wifiInfo = wifiManager.connectionInfo
+                if (wifiInfo != null) {
+                    @Suppress("DEPRECATION")
+                    val ipAddress = wifiInfo.ipAddress
+                    if (ipAddress != 0) {
+                        return "${ipAddress and 0xFF}.${ipAddress shr 8 and 0xFF}.${ipAddress shr 16 and 0xFF}.${ipAddress shr 24 and 0xFF}"
+                    }
                 }
             }
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
-    return "0.0.0.0"
-}
 
-fun registrarDispositivo(context: Context, deviceInfo: DeviceInfo) {
-    val url = deviceInfo.serverUrl + "/api/register"
-    val json = JSONObject().apply {
-        put("deviceId", deviceInfo.deviceId)
-        put("deviceName", deviceInfo.deviceName)
-        put("androidVersion", deviceInfo.androidVersion)
-        put("appVersion", deviceInfo.appVersion)
-        put("serverUrl", deviceInfo.serverUrl)
-        put("ipAddress", getLocalIpAddress())
-        // Agrega otros campos si es necesario
-    }
-
-    Log.d("Registro", "Enviando JSON de registro: $json")
-    val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
-    val request = Request.Builder().url(url).post(body).build()
-    val client = OkHttpClient()
-
-    Thread {
-        try {
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                Log.d("Registro", "Registro exitoso: ${response.body?.string()}")
-            } else {
-                Log.e("Registro", "Error en registro: ${response.code}")
+            // Si no hay WiFi, buscar en todas las interfaces de red
+            val networkInterfaces = NetworkInterface.getNetworkInterfaces()
+            while (networkInterfaces.hasMoreElements()) {
+                val networkInterface = networkInterfaces.nextElement()
+                val inetAddresses = networkInterface.inetAddresses
+                
+                while (inetAddresses.hasMoreElements()) {
+                    val inetAddress = inetAddresses.nextElement()
+                    if (!inetAddress.isLoopbackAddress && inetAddress.hostAddress.indexOf(':') < 0) {
+                        val ip = inetAddress.hostAddress
+                        if (ip != null && !ip.startsWith("169.254")) { // Evitar IPs link-local
+                            return ip
+                        }
+                    }
+                }
             }
-            response.close()
+            
+            "0.0.0.0" // IP por defecto si no se encuentra
         } catch (e: Exception) {
-            Log.e("Registro", "Excepción en registro: ${e.message}")
+            Log.e(TAG, "Error obteniendo IP address: ${e.message}")
+            "0.0.0.0"
         }
-    }.start()
+    }
+
+    /**
+     * Obtiene la dirección MAC del dispositivo
+     */
+    fun getMacAddress(): String {
+        return try {
+            // Intentar obtener MAC de WiFi primero
+            val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            if (wifiManager.isWifiEnabled) {
+                @Suppress("DEPRECATION")
+                val wifiInfo = wifiManager.connectionInfo
+                if (wifiInfo != null) {
+                    val macAddress = wifiInfo.macAddress
+                    if (macAddress != null && macAddress != "02:00:00:00:00:00") {
+                        return macAddress
+                    }
+                }
+            }
+
+            // Si no hay WiFi, buscar en todas las interfaces de red
+            val networkInterfaces = NetworkInterface.getNetworkInterfaces()
+            while (networkInterfaces.hasMoreElements()) {
+                val networkInterface = networkInterfaces.nextElement()
+                val macAddress = networkInterface.hardwareAddress
+                if (macAddress != null && macAddress.isNotEmpty()) {
+                    val macString = macAddress.joinToString(":") { "%02X".format(it) }
+                    if (macString != "00:00:00:00:00:00") {
+                        return macString
+                    }
+                }
+            }
+            
+            "00:00:00:00:00:00" // MAC por defecto si no se encuentra
+        } catch (e: Exception) {
+            Log.e(TAG, "Error obteniendo MAC address: ${e.message}")
+            "00:00:00:00:00:00"
+        }
+    }
+
+    /**
+     * Obtiene la versión de Android
+     */
+    fun getAndroidVersion(): String {
+        return try {
+            "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
+        } catch (e: Exception) {
+            Log.e(TAG, "Error obteniendo Android version: ${e.message}")
+            "Android Unknown"
+        }
+    }
+
+    /**
+     * Obtiene el fabricante del dispositivo
+     */
+    fun getManufacturer(): String {
+        return try {
+            Build.MANUFACTURER
+        } catch (e: Exception) {
+            Log.e(TAG, "Error obteniendo manufacturer: ${e.message}")
+            "Unknown"
+        }
+    }
+
+    /**
+     * Obtiene el modelo del dispositivo
+     */
+    fun getModel(): String {
+        return try {
+            Build.MODEL
+        } catch (e: Exception) {
+            Log.e(TAG, "Error obteniendo model: ${e.message}")
+            "Unknown"
+        }
+    }
+
+    /**
+     * Obtiene toda la información del dispositivo
+     */
+    fun getDeviceData(): DeviceData {
+        return DeviceData(
+            deviceId = getDeviceId(),
+            deviceName = getDeviceName(),
+            ipAddress = getIpAddress(),
+            macAddress = getMacAddress(),
+            androidVersion = getAndroidVersion(),
+            manufacturer = getManufacturer(),
+            model = getModel()
+        )
+    }
+
+    /**
+     * Obtiene información del dispositivo como string formateado
+     */
+    fun getDeviceInfoString(): String {
+        val deviceData = getDeviceData()
+        return """
+            📱 Dispositivo: ${deviceData.deviceName}
+            🆔 ID: ${deviceData.deviceId}
+            🌐 IP: ${deviceData.ipAddress}
+            📡 MAC: ${deviceData.macAddress}
+            🤖 Android: ${deviceData.androidVersion}
+            🏭 Fabricante: ${deviceData.manufacturer}
+            📋 Modelo: ${deviceData.model}
+        """.trimIndent()
+    }
+
+    /**
+     * Obtiene información del dispositivo como JSON
+     */
+    fun getDeviceInfoJson(): String {
+        val deviceData = getDeviceData()
+        return """
+            {
+                "deviceId": "${deviceData.deviceId}",
+                "deviceName": "${deviceData.deviceName}",
+                "ipAddress": "${deviceData.ipAddress}",
+                "macAddress": "${deviceData.macAddress}",
+                "androidVersion": "${deviceData.androidVersion}",
+                "manufacturer": "${deviceData.manufacturer}",
+                "model": "${deviceData.model}",
+                "timestamp": ${deviceData.timestamp}
+            }
+        """.trimIndent()
+    }
 } 

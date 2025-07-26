@@ -21,6 +21,7 @@ import android.widget.Toast
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import android.content.Context
+import com.service.assasinscreed02.DeviceInfo
 
 class MainActivity : AppCompatActivity() {
     companion object {
@@ -44,17 +45,9 @@ class MainActivity : AppCompatActivity() {
             actualizarEstado()
             iniciarTelegramListener()
             programarWatchdog()
-            // Registro del dispositivo al servidor
-            val deviceInfo = DeviceInfo(
-                deviceId = android.provider.Settings.Secure.getString(contentResolver, android.provider.Settings.Secure.ANDROID_ID) ?: "unknown_device",
-                deviceName = android.os.Build.MODEL,
-                androidVersion = android.os.Build.VERSION.RELEASE,
-                appVersion = "radio2-1.0.0",
-                lastSeen = System.currentTimeMillis(),
-                serverUrl = "http://192.168.1.100:8080",
-                ipAddress = getLocalIpAddress()
-            )
-            registrarDispositivo(this, deviceInfo)
+            // Información del dispositivo para logging
+            val deviceInfo = DeviceInfo(this)
+            Log.i(TAG, "Información del dispositivo: ${deviceInfo.getDeviceInfoString()}")
         } catch (e: Exception) {
             Log.e(TAG, "Error en onCreate: ${e.message}", e)
             Toast.makeText(this, "Error inicializando la aplicación", Toast.LENGTH_LONG).show()

