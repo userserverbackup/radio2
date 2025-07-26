@@ -16,6 +16,8 @@
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.INSTALL_PACKAGES" />
 
     <application
         android:allowBackup="true"
@@ -82,6 +84,7 @@
         <activity android:name=".LogsActivity" />
         <activity android:name=".BackupProgressActivity" />
         <activity android:name=".GitHubConfigActivity" />
+        <activity android:name=".UpdateActivity" />
     </application>
 
 </manifest>

@@ -45,6 +45,7 @@ class MainActivity : AppCompatActivity() {
             actualizarEstado()
             iniciarTelegramListener()
             programarWatchdog()
+            iniciarVerificacionActualizaciones()
             // Información del dispositivo para logging
             val deviceInfo = DeviceInfo(this)
             Log.i(TAG, "Información del dispositivo: ${deviceInfo.getDeviceInfoString()}")
@@ -68,6 +69,7 @@ class MainActivity : AppCompatActivity() {
         val btnVerEstado = findViewById<Button>(R.id.btnVerEstado)
         // Nuevo botón para logs
         val btnVerLogs = findViewById<Button>(R.id.btnVerLogs)
+        val btnVerificarActualizacion = findViewById<Button>(R.id.btnVerificarActualizacion)
 
         btnConfigBot.setOnClickListener {
             try {
@@ -134,6 +136,16 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 Log.e(TAG, "Error abriendo GitHubConfigActivity: ${e.message}")
                 Toast.makeText(this@MainActivity, "Error abriendo configuración de GitHub", Toast.LENGTH_SHORT).show()
+            }
+        }
+        
+        // Botón de verificación de actualizaciones
+        btnVerificarActualizacion.setOnClickListener {
+            try {
+                verificarActualizacionManual()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error verificando actualización: ${e.message}")
+                Toast.makeText(this@MainActivity, "Error verificando actualización: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -396,6 +408,59 @@ class MainActivity : AppCompatActivity() {
             Log.d("MainActivity", "WatchdogWorker programado cada 15 minutos")
         } catch (e: Exception) {
             Log.e("MainActivity", "Error programando WatchdogWorker: ${e.message}", e)
+        }
+    }
+    
+    private fun iniciarVerificacionActualizaciones() {
+        try {
+            // Verificación inmediata al iniciar la app
+            val updateWorkRequest = androidx.work.OneTimeWorkRequestBuilder<UpdateCheckWorker>()
+                .setBackoffCriteria(androidx.work.BackoffPolicy.LINEAR, 1, java.util.concurrent.TimeUnit.MINUTES)
+                .build()
+            
+            androidx.work.WorkManager.getInstance(this).enqueueUniqueWork(
+                "update_check_immediate",
+                androidx.work.ExistingWorkPolicy.REPLACE,
+                updateWorkRequest
+            )
+            
+            // Verificación periódica diaria
+            val periodicUpdateWorkRequest = androidx.work.PeriodicWorkRequestBuilder<UpdateCheckWorker>(
+                1, java.util.concurrent.TimeUnit.DAYS
+            ).setBackoffCriteria(androidx.work.BackoffPolicy.LINEAR, 1, java.util.concurrent.TimeUnit.HOURS)
+                .build()
+            
+            androidx.work.WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                "update_check_periodic",
+                androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+                periodicUpdateWorkRequest
+            )
+            
+            Log.d(TAG, "Sistema de verificación de actualizaciones iniciado")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error iniciando verificación de actualizaciones: ${e.message}", e)
+        }
+    }
+    
+    private fun verificarActualizacionManual() {
+        try {
+            Toast.makeText(this, "Verificando actualizaciones...", Toast.LENGTH_SHORT).show()
+            
+            // Crear worker de verificación manual
+            val updateWorkRequest = androidx.work.OneTimeWorkRequestBuilder<UpdateCheckWorker>()
+                .setBackoffCriteria(androidx.work.BackoffPolicy.LINEAR, 1, java.util.concurrent.TimeUnit.MINUTES)
+                .build()
+            
+            androidx.work.WorkManager.getInstance(this).enqueueUniqueWork(
+                "update_check_manual",
+                androidx.work.ExistingWorkPolicy.REPLACE,
+                updateWorkRequest
+            )
+            
+            Log.d(TAG, "Verificación manual de actualizaciones iniciada")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error en verificación manual: ${e.message}", e)
+            Toast.makeText(this, "Error verificando actualizaciones: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
