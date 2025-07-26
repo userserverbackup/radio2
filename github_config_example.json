@@ -1,0 +1,24 @@
+{
+  "github_config": {
+    "token": "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",
+    "owner": "userserverbackup",
+    "repo": "radio2-backup-historial",
+    "branch": "main",
+    "historial_file": "historial_backup.json"
+  },
+  "app_config": {
+    "auto_sync": true,
+    "sync_after_backup": true,
+    "max_file_size": 104857600,
+    "check_duplicates": true
+  },
+  "telegram_commands": {
+    "github_sync": "/github_sync",
+    "github_stats": "/github_stats"
+  },
+  "repository_info": {
+    "url": "https://github.com/userserverbackup/radio2-backup-historial",
+    "visibility": "public",
+    "description": "Historial de backups de Radio2 Backup App"
+  }
+} 

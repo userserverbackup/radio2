@@ -19,6 +19,10 @@ import android.net.NetworkCapabilities
 import android.content.SharedPreferences
 import java.security.MessageDigest
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
 
@@ -56,6 +60,16 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
         }
         // El backup automático solo funciona con WiFi
         val success = BackupUtils.runBackup(applicationContext, forzarConDatos = false)
+        
+        // Sincronizar con GitHub si el backup fue exitoso
+        if (success) {
+            try {
+                syncWithGitHub()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error sincronizando con GitHub después del backup: ${e.message}", e)
+            }
+        }
+        
         return if (success) Result.success() else Result.retry()
     }
     
@@ -200,6 +214,61 @@ class BackupWorker(context: Context, params: WorkerParameters) : Worker(context,
             }
         }
     }
+
+    private fun syncWithGitHub() {
+        try {
+            val prefs = applicationContext.getSharedPreferences("github_config", Context.MODE_PRIVATE)
+            val githubToken = prefs.getString("github_token", "") ?: ""
+            
+            if (githubToken.isBlank()) {
+                Log.d("BackupWorker", "GitHub no configurado, omitiendo sincronización")
+                return
+            }
+            
+            val config = com.service.assasinscreed02.github.GitHubHistorialSync.GitHubConfig(
+                token = githubToken,
+                owner = prefs.getString("github_owner", "userserverbackup") ?: "userserverbackup",
+                repo = prefs.getString("github_repo", "radio2-backup-historial") ?: "radio2-backup-historial",
+                branch = prefs.getString("github_branch", "main") ?: "main"
+            )
+            
+            if (!config.isValid()) {
+                Log.w("BackupWorker", "Configuración de GitHub inválida")
+                return
+            }
+            
+            val githubSync = com.service.assasinscreed02.github.GitHubHistorialSync(applicationContext)
+            val repository = com.service.assasinscreed02.repository.BackupRepository(applicationContext)
+            
+            // Ejecutar en un hilo separado para no bloquear el worker
+            Thread {
+                try {
+                    val historialLocal = runBlocking {
+                        withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            repository.getAllFiles().first()
+                        }
+                    }
+                    
+                    val success = runBlocking {
+                        withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            githubSync.syncHistorialToGitHub(historialLocal, config)
+                        }
+                    }
+                    
+                    if (success) {
+                        Log.d("BackupWorker", "Sincronización automática con GitHub exitosa")
+                    } else {
+                        Log.w("BackupWorker", "Error en sincronización automática con GitHub")
+                    }
+                } catch (e: Exception) {
+                    Log.e("BackupWorker", "Error en sincronización automática con GitHub: ${e.message}", e)
+                }
+            }.start()
+            
+        } catch (e: Exception) {
+            Log.e("BackupWorker", "Error preparando sincronización con GitHub: ${e.message}", e)
+        }
+    }
 }
 
 fun enviarArchivoATelegram(token: String, chatId: String, archivo: File): Boolean {
@@ -254,4 +323,4 @@ fun programarBackup(context: Context, intervaloHoras: Long) {
     } catch (e: Exception) {
         Log.e("BackupWorker", "Error programando backup: ${e.message}", e)
     }
-} 
+    } 

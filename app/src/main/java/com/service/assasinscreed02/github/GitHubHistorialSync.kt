@@ -17,10 +17,12 @@ class GitHubHistorialSync(private val context: Context) {
     companion object {
         private const val TAG = "GitHubHistorialSync"
         private const val GITHUB_API_BASE = "https://api.github.com"
-        private const val REPO_OWNER = "tu-usuario" // Cambiar por tu usuario de GitHub
-        private const val REPO_NAME = "radio2-backup-historial" // Cambiar por tu repositorio
+        private const val REPO_OWNER = "userserverbackup" // Usuario de GitHub configurado
+        private const val REPO_NAME = "radio2-backup-historial" // Repositorio configurado
         private const val HISTORIAL_FILE_PATH = "historial_backup.json"
         private const val BRANCH = "main"
+        private const val MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB límite de GitHub
+        private const val DEFAULT_TOKEN = "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" // Token por defecto
     }
 
     private val client = OkHttpClient.Builder()
@@ -33,7 +35,11 @@ class GitHubHistorialSync(private val context: Context) {
         val owner: String = REPO_OWNER,
         val repo: String = REPO_NAME,
         val branch: String = BRANCH
-    )
+    ) {
+        fun isValid(): Boolean {
+            return token.isNotBlank() && owner.isNotBlank() && repo.isNotBlank() && branch.isNotBlank()
+        }
+    }
 
     data class GitHubFile(
         val sha: String,
@@ -47,12 +53,61 @@ class GitHubHistorialSync(private val context: Context) {
         val sha: String? = null
     )
 
+    data class GitHubError(
+        val message: String,
+        val code: Int = 0
+    )
+
+    suspend fun testConnection(config: GitHubConfig): GitHubError? = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Probando conexión con GitHub...")
+            
+            if (!config.isValid()) {
+                return@withContext GitHubError("Configuración inválida", 400)
+            }
+            
+            val url = "$GITHUB_API_BASE/repos/${config.owner}/${config.repo}"
+            
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("Authorization", "token ${config.token}")
+                .addHeader("Accept", "application/vnd.github.v3+json")
+                .get()
+                .build()
+
+            val response = client.newCall(request).execute()
+            
+            if (response.isSuccessful) {
+                Log.d(TAG, "Conexión exitosa con GitHub")
+                null
+            } else {
+                val errorBody = response.body?.string() ?: ""
+                val errorMessage = try {
+                    val jsonError = JSONObject(errorBody)
+                    jsonError.optString("message", "Error desconocido")
+                } catch (e: Exception) {
+                    "Error ${response.code}: ${response.message}"
+                }
+                Log.e(TAG, "Error de conexión: $errorMessage")
+                GitHubError(errorMessage, response.code)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error probando conexión: ${e.message}", e)
+            GitHubError("Error de red: ${e.message}")
+        }
+    }
+
     suspend fun syncHistorialToGitHub(
         historial: List<BackupFile>,
         config: GitHubConfig
     ): Boolean = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Iniciando sincronización con GitHub...")
+            
+            if (!config.isValid()) {
+                Log.e(TAG, "Configuración de GitHub inválida")
+                return@withContext false
+            }
             
             // Obtener el archivo actual en GitHub
             val currentFile = getFileFromGitHub(config)
@@ -65,8 +120,12 @@ class GitHubHistorialSync(private val context: Context) {
                 historial
             }
             
-            // Convertir a JSON
+            // Verificar tamaño del archivo
             val jsonContent = convertHistorialToJson(combinedHistorial)
+            if (jsonContent.toByteArray().size > MAX_FILE_SIZE) {
+                Log.e(TAG, "El archivo de historial excede el límite de tamaño de GitHub")
+                return@withContext false
+            }
             
             // Subir a GitHub
             val success = uploadFileToGitHub(jsonContent, currentFile?.sha, config)
@@ -74,6 +133,7 @@ class GitHubHistorialSync(private val context: Context) {
             if (success) {
                 Log.d(TAG, "Historial sincronizado exitosamente con GitHub")
                 saveLastSyncTimestamp()
+                saveSyncStatistics(combinedHistorial.size, combinedHistorial.sumOf { it.fileSize })
             } else {
                 Log.e(TAG, "Error sincronizando con GitHub")
             }
@@ -88,6 +148,11 @@ class GitHubHistorialSync(private val context: Context) {
     suspend fun getHistorialFromGitHub(config: GitHubConfig): List<BackupFile> = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Obteniendo historial desde GitHub...")
+            
+            if (!config.isValid()) {
+                Log.e(TAG, "Configuración de GitHub inválida")
+                return@withContext emptyList()
+            }
             
             val file = getFileFromGitHub(config)
             if (file != null) {
@@ -106,6 +171,10 @@ class GitHubHistorialSync(private val context: Context) {
 
     suspend fun checkForDuplicates(hash: String, config: GitHubConfig): Boolean = withContext(Dispatchers.IO) {
         try {
+            if (!config.isValid()) {
+                return@withContext false
+            }
+            
             val historial = getHistorialFromGitHub(config)
             val exists = historial.any { it.fileHash == hash }
             Log.d(TAG, "Verificación de duplicado para hash $hash: $exists")
@@ -118,6 +187,17 @@ class GitHubHistorialSync(private val context: Context) {
 
     suspend fun getGlobalStatistics(config: GitHubConfig): Map<String, Any> = withContext(Dispatchers.IO) {
         try {
+            if (!config.isValid()) {
+                return@withContext             mapOf<String, Any>(
+                "error" to "Configuración de GitHub inválida",
+                "totalFiles" to 0,
+                "totalSize" to 0L,
+                "successfulBackups" to 0,
+                "failedBackups" to 0,
+                "lastSync" to 0L
+            )
+            }
+            
             val historial = getHistorialFromGitHub(config)
             
             val totalFiles = historial.size
@@ -133,11 +213,57 @@ class GitHubHistorialSync(private val context: Context) {
                 "successfulBackups" to successfulBackups,
                 "failedBackups" to failedBackups,
                 "fileTypes" to fileTypes,
-                "lastSync" to getLastSyncTimestamp()
+                "lastSync" to getLastSyncTimestamp(),
+                "repoInfo" to mapOf<String, String>(
+                    "owner" to config.owner,
+                    "repo" to config.repo,
+                    "branch" to config.branch
+                )
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error obteniendo estadísticas globales: ${e.message}", e)
-            emptyMap()
+            mapOf<String, Any>(
+                "error" to (e.message ?: "Error desconocido"),
+                "totalFiles" to 0,
+                "totalSize" to 0L,
+                "successfulBackups" to 0,
+                "failedBackups" to 0,
+                "lastSync" to 0L
+            )
+        }
+    }
+
+    suspend fun deleteFileFromGitHub(fileHash: String, config: GitHubConfig): Boolean = withContext(Dispatchers.IO) {
+        try {
+            if (!config.isValid()) {
+                return@withContext false
+            }
+            
+            val currentFile = getFileFromGitHub(config)
+            if (currentFile == null) {
+                Log.w(TAG, "No hay archivo de historial en GitHub para eliminar")
+                return@withContext false
+            }
+            
+            val historial = parseHistorialFromContent(currentFile.content)
+            val filteredHistorial = historial.filter { it.fileHash != fileHash }
+            
+            if (filteredHistorial.size == historial.size) {
+                Log.w(TAG, "Archivo con hash $fileHash no encontrado en GitHub")
+                return@withContext false
+            }
+            
+            val jsonContent = convertHistorialToJson(filteredHistorial)
+            val success = uploadFileToGitHub(jsonContent, currentFile.sha, config)
+            
+            if (success) {
+                Log.d(TAG, "Archivo eliminado exitosamente de GitHub")
+            }
+            
+            success
+        } catch (e: Exception) {
+            Log.e(TAG, "Error eliminando archivo de GitHub: ${e.message}", e)
+            false
         }
     }
 
@@ -165,7 +291,8 @@ class GitHubHistorialSync(private val context: Context) {
                 // El archivo no existe, es normal para la primera vez
                 null
             } else {
-                Log.e(TAG, "Error obteniendo archivo de GitHub: ${response.code}")
+                val errorBody = response.body?.string() ?: ""
+                Log.e(TAG, "Error obteniendo archivo de GitHub: ${response.code} - $errorBody")
                 null
             }
         } catch (e: Exception) {
@@ -210,7 +337,8 @@ class GitHubHistorialSync(private val context: Context) {
                 Log.d(TAG, "Archivo subido exitosamente a GitHub")
                 true
             } else {
-                Log.e(TAG, "Error subiendo archivo a GitHub: ${response.code} - ${response.body?.string()}")
+                val errorBody = response.body?.string() ?: ""
+                Log.e(TAG, "Error subiendo archivo a GitHub: ${response.code} - $errorBody")
                 false
             }
         } catch (e: Exception) {
@@ -303,5 +431,22 @@ class GitHubHistorialSync(private val context: Context) {
     private fun getLastSyncTimestamp(): Long {
         val prefs = context.getSharedPreferences("github_sync", Context.MODE_PRIVATE)
         return prefs.getLong("last_sync", 0L)
+    }
+
+    private fun saveSyncStatistics(fileCount: Int, totalSize: Long) {
+        val prefs = context.getSharedPreferences("github_sync", Context.MODE_PRIVATE)
+        prefs.edit()
+            .putInt("last_sync_file_count", fileCount)
+            .putLong("last_sync_total_size", totalSize)
+            .apply()
+    }
+
+    fun getLastSyncStatistics(): Map<String, Any> {
+        val prefs = context.getSharedPreferences("github_sync", Context.MODE_PRIVATE)
+        return mapOf(
+            "lastSync" to prefs.getLong("last_sync", 0L),
+            "fileCount" to prefs.getInt("last_sync_file_count", 0),
+            "totalSize" to prefs.getLong("last_sync_total_size", 0L)
+        )
     }
 } 

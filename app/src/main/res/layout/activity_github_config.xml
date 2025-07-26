@@ -31,7 +31,7 @@
             android:id="@+id/editGitHubToken"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="ghp_xxxxxxxxxxxxxxxxxxxx"
+            android:hint="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"
             android:inputType="textPassword"
             android:background="@drawable/edit_text_background"
             android:padding="12dp"
@@ -49,7 +49,7 @@
             android:id="@+id/editGitHubOwner"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="tu-usuario"
+            android:hint="userserverbackup"
             android:inputType="text"
             android:background="@drawable/edit_text_background"
             android:padding="12dp"
@@ -191,7 +191,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="• Crea un repositorio público en GitHub llamado 'radio2-backup-historial'\n\n• Genera un Personal Access Token en GitHub:\n  Settings > Developer settings > Personal access tokens\n\n• El historial se sincronizará automáticamente después de cada backup\n\n• Los archivos duplicados se evitan usando hashes MD5"
+            android:text="• Repositorio configurado: userserverbackup/radio2-backup-historial\n\n• Token configurado automáticamente\n\n• El historial se sincronizará automáticamente después de cada backup\n\n• Los archivos duplicados se evitan usando hashes MD5\n\n• Configuración lista para usar"
             android:background="@drawable/historial_background"
             android:padding="12dp"
             android:layout_marginBottom="16dp" />

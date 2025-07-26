@@ -5,6 +5,7 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import com.service.assasinscreed02.github.GitHubHistorialSync
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.first
 import android.util.Log
 import java.text.SimpleDateFormat
 import java.util.*
@@ -30,6 +31,7 @@ class GitHubConfigActivity : AppCompatActivity() {
         initViews()
         loadCurrentConfig()
         setupListeners()
+        updateStatusDisplay()
     }
 
     private fun initViews() {
@@ -47,8 +49,8 @@ class GitHubConfigActivity : AppCompatActivity() {
 
     private fun loadCurrentConfig() {
         val prefs = getSharedPreferences("github_config", MODE_PRIVATE)
-        editToken.setText(prefs.getString("github_token", ""))
-        editOwner.setText(prefs.getString("github_owner", "tu-usuario"))
+        editToken.setText(prefs.getString("github_token", "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"))
+        editOwner.setText(prefs.getString("github_owner", "userserverbackup"))
         editRepo.setText(prefs.getString("github_repo", "radio2-backup-historial"))
         editBranch.setText(prefs.getString("github_branch", "main"))
         
@@ -72,26 +74,38 @@ class GitHubConfigActivity : AppCompatActivity() {
     private fun testGitHubConnection() {
         activityScope.launch {
             try {
-                txtStatus.text = "Probando conexión..."
+                txtStatus.text = "🔍 Probando conexión..."
                 btnTestConnection.isEnabled = false
                 
                 val config = getGitHubConfig()
-                if (config.token.isBlank()) {
-                    txtStatus.text = "❌ Error: Token de GitHub requerido"
+                if (!config.isValid()) {
+                    txtStatus.text = "❌ Error: Configuración incompleta"
                     return@launch
                 }
                 
                 val githubSync = GitHubHistorialSync(this@GitHubConfigActivity)
-                val historial = withContext(Dispatchers.IO) {
-                    githubSync.getHistorialFromGitHub(config)
+                val error = withContext(Dispatchers.IO) {
+                    githubSync.testConnection(config)
                 }
                 
-                txtStatus.text = "✅ Conexión exitosa\nArchivos en GitHub: ${historial.size}"
-                updateStats(historial.size)
+                if (error == null) {
+                    // Si la conexión es exitosa, obtener estadísticas
+                    val stats = withContext(Dispatchers.IO) {
+                        githubSync.getGlobalStatistics(config)
+                    }
+                    
+                    val totalFiles = stats["totalFiles"] as? Int ?: 0
+                    val totalSize = stats["totalSize"] as? Long ?: 0L
+                    
+                    txtStatus.text = "✅ Conexión exitosa\n📁 Archivos en GitHub: $totalFiles\n💾 Tamaño total: ${formatFileSize(totalSize)}"
+                    updateStats(totalFiles, totalSize)
+                } else {
+                    txtStatus.text = "❌ Error de conexión: ${error.message}"
+                }
                 
             } catch (e: Exception) {
                 Log.e("GitHubConfig", "Error probando conexión: ${e.message}", e)
-                txtStatus.text = "❌ Error de conexión: ${e.message}"
+                txtStatus.text = "❌ Error: ${e.message}"
             } finally {
                 btnTestConnection.isEnabled = true
             }
@@ -101,26 +115,48 @@ class GitHubConfigActivity : AppCompatActivity() {
     private fun syncWithGitHub() {
         activityScope.launch {
             try {
-                txtStatus.text = "Sincronizando con GitHub..."
+                txtStatus.text = "🔄 Sincronizando con GitHub..."
                 btnSyncNow.isEnabled = false
                 
                 val config = getGitHubConfig()
-                if (config.token.isBlank()) {
-                    txtStatus.text = "❌ Error: Token de GitHub requerido"
+                if (!config.isValid()) {
+                    txtStatus.text = "❌ Error: Configuración incompleta"
                     return@launch
                 }
                 
                 val githubSync = GitHubHistorialSync(this@GitHubConfigActivity)
                 
-                // Por ahora, solo simulamos la sincronización
-                val success = true
+                // Obtener historial local desde la base de datos
+                val repository = com.service.assasinscreed02.repository.BackupRepository(this@GitHubConfigActivity)
+                val historialLocal = withContext(Dispatchers.IO) {
+                    repository.getAllFiles().first()
+                }
+                
+                // Sincronizar con GitHub
+                val success = withContext(Dispatchers.IO) {
+                    githubSync.syncHistorialToGitHub(historialLocal, config)
+                }
                 
                 if (success) {
                     txtStatus.text = "✅ Sincronización exitosa"
                     updateLastSyncInfo()
                     
-                    // Por ahora, simulamos las estadísticas
-                    updateStats(0)
+                    // Actualizar estadísticas reales
+                    val stats = withContext(Dispatchers.IO) {
+                        githubSync.getGlobalStatistics(config)
+                    }
+                    
+                    val totalFiles = stats["totalFiles"] as? Int ?: 0
+                    val totalSize = stats["totalSize"] as? Long ?: 0L
+                    updateStats(totalFiles, totalSize)
+                    
+                    // Mostrar información adicional
+                    val repoInfo = stats["repoInfo"] as? Map<*, *>
+                    if (repoInfo != null) {
+                        val owner = repoInfo["owner"] as? String ?: ""
+                        val repo = repoInfo["repo"] as? String ?: ""
+                        txtStatus.append("\n🌐 Repositorio: $owner/$repo")
+                    }
                 } else {
                     txtStatus.text = "❌ Error en la sincronización"
                 }
@@ -160,6 +196,7 @@ class GitHubConfigActivity : AppCompatActivity() {
         
         Toast.makeText(this, "Configuración guardada", Toast.LENGTH_SHORT).show()
         txtStatus.text = "✅ Configuración guardada"
+        updateStatusDisplay()
     }
 
     private fun getGitHubConfig(): GitHubHistorialSync.GitHubConfig {
@@ -183,8 +220,44 @@ class GitHubConfigActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateStats(totalFiles: Int) {
-        txtStats.text = "Archivos en GitHub: $totalFiles"
+    private fun updateStats(totalFiles: Int, totalSize: Long = 0L) {
+        val sizeText = if (totalSize > 0) " (${formatFileSize(totalSize)})" else ""
+        txtStats.text = "Archivos en GitHub: $totalFiles$sizeText"
+    }
+
+    private fun updateStatusDisplay() {
+        val config = getGitHubConfig()
+        if (config.isValid()) {
+            txtStatus.text = "✅ Configuración válida"
+            
+            // Cargar estadísticas si están disponibles
+            activityScope.launch {
+                try {
+                    val githubSync = GitHubHistorialSync(this@GitHubConfigActivity)
+                    val stats = withContext(Dispatchers.IO) {
+                        githubSync.getGlobalStatistics(config)
+                    }
+                    
+                    val totalFiles = stats["totalFiles"] as? Int ?: 0
+                    val totalSize = stats["totalSize"] as? Long ?: 0L
+                    updateStats(totalFiles, totalSize)
+                } catch (e: Exception) {
+                    Log.e("GitHubConfig", "Error cargando estadísticas: ${e.message}")
+                }
+            }
+        } else {
+            txtStatus.text = "⚠️ Configuración incompleta"
+            txtStats.text = "Archivos en GitHub: 0"
+        }
+    }
+
+    private fun formatFileSize(size: Long): String {
+        return when {
+            size < 1024 -> "$size B"
+            size < 1024 * 1024 -> "${size / 1024} KB"
+            size < 1024 * 1024 * 1024 -> "${size / (1024 * 1024)} MB"
+            else -> "${size / (1024 * 1024 * 1024)} GB"
+        }
     }
 
     override fun onDestroy() {

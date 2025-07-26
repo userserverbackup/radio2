@@ -1,125 +1,116 @@
-# Integración con GitHub para Radio2 Backup
+# Integración con GitHub - Radio2 Backup
 
-## 📋 Descripción
+## Descripción
 
-Esta implementación agrega sincronización automática del historial de archivos respaldados con GitHub para evitar duplicados entre múltiples dispositivos.
+La aplicación Radio2 Backup incluye una integración completa con GitHub para sincronizar automáticamente el historial de backups. Esta funcionalidad permite mantener un registro centralizado de todos los archivos respaldados, facilitando la gestión y recuperación de datos.
 
-## 🚀 Características Implementadas
+## Características Principales
 
-### ✅ **Funcionalidades Completadas:**
+### 🔄 Sincronización Automática
+- **Sincronización automática**: Después de cada backup exitoso, el historial se sincroniza automáticamente con GitHub
+- **Sincronización manual**: Opción para sincronizar manualmente desde la interfaz de usuario
+- **Sincronización por Telegram**: Comando `/github_sync` para sincronizar desde Telegram
 
-1. **Clase GitHubHistorialSync** - Maneja toda la comunicación con GitHub API
-2. **Actividad de Configuración** - Interfaz para configurar GitHub
-3. **Integración en Backup** - Sincronización automática después de cada backup
-4. **Comandos de Telegram** - Control remoto de GitHub desde Telegram
-5. **Verificación de Duplicados** - Evita subir archivos ya existentes
+### 📊 Estadísticas en Tiempo Real
+- Total de archivos respaldados
+- Tamaño total de los backups
+- Número de backups exitosos y fallidos
+- Última fecha de sincronización
+- Información del repositorio
 
-### 🔧 **Funcionalidades Técnicas:**
+### 🛡️ Gestión de Duplicados
+- Verificación automática de archivos duplicados usando hashes MD5
+- Prevención de subidas duplicadas
+- Optimización del almacenamiento
 
-- **API de GitHub** - Uso completo de la API REST de GitHub
-- **Manejo de JSON** - Serialización/deserialización del historial
-- **Base64 Encoding** - Para archivos en GitHub
-- **Manejo de Errores** - Gestión robusta de errores de red
-- **Logging** - Registro detallado de operaciones
+### 🔧 Configuración Flexible
+- Token de acceso personal configurable
+- Repositorio personalizable
+- Rama (branch) configurable
+- Validación de configuración
 
-## 📱 **Configuración en la App**
+## Configuración Inicial
 
-### 1. **Acceder a la Configuración**
-- Abre la app Radio2
-- Toca el botón **"Configurar GitHub"**
-- Se abrirá la pantalla de configuración
+### 1. Crear Repositorio en GitHub
 
-### 2. **Configurar GitHub**
-- **Token de GitHub**: Tu Personal Access Token
-- **Usuario**: Tu nombre de usuario de GitHub
-- **Repositorio**: `radio2-backup-historial` (recomendado)
-- **Rama**: `main` (por defecto)
+1. Ve a [GitHub](https://github.com) y crea una nueva cuenta o inicia sesión
+2. Crea un nuevo repositorio público llamado `radio2-backup-historial`
+3. El repositorio debe ser público para permitir el acceso desde la aplicación
 
-### 3. **Probar Conexión**
-- Toca **"Probar Conexión"** para verificar la configuración
-- Si es exitosa, verás el número de archivos en GitHub
+### 2. Generar Personal Access Token
 
-### 4. **Sincronizar**
-- Toca **"Sincronizar Ahora"** para la primera sincronización
-- Las siguientes serán automáticas después de cada backup
+1. En GitHub, ve a **Settings** > **Developer settings** > **Personal access tokens** > **Tokens (classic)**
+2. Haz clic en **Generate new token (classic)**
+3. Configura el token:
+   - **Note**: `Radio2 Backup Sync`
+   - **Expiration**: `No expiration` (o selecciona una fecha futura)
+   - **Scopes**: Marca `repo` para acceso completo al repositorio
+4. Haz clic en **Generate token**
+5. **IMPORTANTE**: Copia el token generado (no podrás verlo de nuevo)
 
-## 🔑 **Configuración de GitHub**
+### 3. Configurar en la Aplicación
 
-### 1. **Crear Repositorio**
-```bash
-# En GitHub, crea un repositorio público llamado:
-radio2-backup-historial
+1. Abre la aplicación Radio2 Backup
+2. Ve a **Configuración** > **GitHub**
+3. Completa los campos:
+   - **Token de GitHub**: Pega el token generado
+   - **Usuario de GitHub**: Tu nombre de usuario de GitHub
+   - **Nombre del Repositorio**: `radio2-backup-historial`
+   - **Rama**: `main` (por defecto)
+4. Haz clic en **Guardar Configuración**
+5. Haz clic en **Probar Conexión** para verificar que todo funciona
+
+## Uso de la Funcionalidad
+
+### Interfaz de Usuario
+
+#### Pantalla de Configuración de GitHub
+- **Guardar Configuración**: Guarda la configuración de GitHub
+- **Probar Conexión**: Verifica la conectividad con GitHub
+- **Sincronizar Ahora**: Ejecuta una sincronización manual
+- **Estado**: Muestra el estado actual de la configuración
+- **Última Sincronización**: Fecha y hora de la última sincronización
+- **Estadísticas**: Información detallada de archivos en GitHub
+
+#### Información Mostrada
+- ✅ Configuración válida
+- ⚠️ Configuración incompleta
+- ❌ Error de conexión
+- 📁 Total de archivos respaldados
+- 💾 Tamaño total de los backups
+
+### Comandos de Telegram
+
+#### `/github_sync`
+Sincroniza manualmente el historial con GitHub.
+
+**Respuesta:**
 ```
-
-### 2. **Generar Personal Access Token**
-1. Ve a **GitHub Settings**
-2. **Developer settings** > **Personal access tokens** > **Tokens (classic)**
-3. **Generate new token** > **Generate new token (classic)**
-4. Configura:
-   - **Note**: `Radio2 Backup Historial`
-   - **Expiration**: `No expiration` (o el que prefieras)
-   - **Scopes**: Marca `repo` (acceso completo a repositorios)
-5. **Generate token**
-6. **Copia el token** (empieza con `ghp_`)
-
-### 3. **Configurar en la App**
-- Pega el token en el campo **"Token de GitHub"**
-- Completa los demás campos
-- Guarda la configuración
-
-## 🤖 **Comandos de Telegram**
-
-### **Nuevos Comandos Disponibles:**
-
-- `/github_sync` - Sincroniza manualmente con GitHub
-- `/github_stats` - Muestra estadísticas de GitHub
-
-### **Ejemplo de Uso:**
-```
-/github_sync
 ✅ Sincronización con GitHub exitosa
-📁 Total de archivos: 1,234
+📁 Total de archivos: 150 (2.5 GB)
+```
 
-/github_stats
+#### `/github_stats`
+Muestra estadísticas detalladas de GitHub.
+
+**Respuesta:**
+```
 📊 Estadísticas de GitHub:
-📁 Total de archivos: 1,234
+
+📁 Total de archivos: 150
 💾 Tamaño total: 2.5 GB
-✅ Backups exitosos: 1,200
-❌ Backups fallidos: 34
+✅ Backups exitosos: 145
+❌ Backups fallidos: 5
 🔄 Última sincronización: 15/12/2024 14:30:25
 🌐 Repositorio: tu-usuario/radio2-backup-historial
 ```
 
-## 🔄 **Sincronización Automática**
+## Estructura de Datos
 
-### **Cuándo se Sincroniza:**
-- ✅ Después de cada backup automático
-- ✅ Después de cada backup manual
-- ✅ Después de cada backup forzado
-- ✅ Manualmente desde Telegram
+### Archivo de Historial (`historial_backup.json`)
 
-### **Qué se Sincroniza:**
-- 📁 Lista completa de archivos respaldados
-- 🔍 Hashes MD5 para verificación de duplicados
-- 📊 Metadatos (nombre, tamaño, fecha, estado)
-- 📝 Información de errores (si los hay)
+El historial se almacena en GitHub como un archivo JSON con la siguiente estructura:
 
-## 🛡️ **Seguridad**
-
-### **Datos Sensibles:**
-- ❌ **NO** se suben archivos reales a GitHub
-- ❌ **NO** se comparten tokens en logs
-- ✅ Solo se sube el historial (metadatos)
-- ✅ Tokens se almacenan localmente de forma segura
-
-### **Privacidad:**
-- 📁 El repositorio puede ser público (solo metadatos)
-- 🔒 Los archivos reales permanecen en Telegram
-- 🛡️ No hay información personal en el historial
-
-## 📊 **Estructura del Historial**
-
-### **Archivo JSON en GitHub:**
 ```json
 [
   {
@@ -131,73 +122,113 @@ radio2-backup-historial
     "fileType": "image",
     "uploadDate": 1702653025000,
     "uploadStatus": "success",
-    "telegramMessageId": "12345",
-    "errorMessage": null
+    "telegramMessageId": "123456789",
+    "errorMessage": ""
   }
 ]
 ```
 
-## 🔧 **Solución de Problemas**
+### Campos del Historial
+- **id**: Identificador único del archivo
+- **fileName**: Nombre del archivo
+- **filePath**: Ruta completa del archivo
+- **fileHash**: Hash MD5 del archivo (para detección de duplicados)
+- **fileSize**: Tamaño del archivo en bytes
+- **fileType**: Tipo de archivo (`image` o `video`)
+- **uploadDate**: Timestamp de la subida
+- **uploadStatus**: Estado de la subida (`success`, `failed`, `pending`)
+- **telegramMessageId**: ID del mensaje de Telegram (si aplica)
+- **errorMessage**: Mensaje de error (si aplica)
 
-### **Error: "GitHub no configurado"**
-- Verifica que hayas configurado el token
-- Asegúrate de que el repositorio existe
-- Confirma que el usuario y repo son correctos
+## Funcionalidades Técnicas
 
-### **Error: "Error de conexión"**
+### Sincronización Inteligente
+- **Merge automático**: Combina historial local con el de GitHub
+- **Resolución de conflictos**: Los archivos locales tienen prioridad
+- **Ordenamiento**: Los archivos se ordenan por fecha de subida (más recientes primero)
+
+### Validación y Seguridad
+- **Validación de configuración**: Verifica que todos los campos requeridos estén completos
+- **Validación de token**: Verifica que el token tenga permisos suficientes
+- **Límites de tamaño**: Verifica que el archivo no exceda los límites de GitHub (100MB)
+
+### Manejo de Errores
+- **Errores de red**: Reintentos automáticos con backoff exponencial
+- **Errores de autenticación**: Mensajes claros sobre problemas de token
+- **Errores de repositorio**: Validación de existencia y permisos
+- **Logs detallados**: Registro completo de errores para debugging
+
+## Límites y Consideraciones
+
+### Límites de GitHub
+- **Tamaño máximo de archivo**: 100MB por archivo
+- **Límite de API**: 5000 requests por hora para usuarios autenticados
+- **Repositorio público**: El repositorio debe ser público para funcionar
+
+### Optimizaciones
+- **Compresión de datos**: Los datos se comprimen antes de subir
+- **Sincronización incremental**: Solo se suben cambios nuevos
+- **Cache local**: Se mantiene cache de estadísticas para mejor rendimiento
+
+## Solución de Problemas
+
+### Error: "Configuración inválida"
+- Verifica que todos los campos estén completos
+- Asegúrate de que el token no esté vacío
+- Verifica que el nombre de usuario y repositorio sean correctos
+
+### Error: "Error de conexión"
 - Verifica tu conexión a internet
-- Confirma que el token es válido
-- Revisa que el repositorio sea accesible
+- Asegúrate de que el token sea válido y tenga permisos de `repo`
+- Verifica que el repositorio exista y sea público
 
-### **Error: "Token inválido"**
-- Regenera el token en GitHub
-- Asegúrate de que tenga permisos `repo`
-- Verifica que no haya expirado
+### Error: "Error en la sincronización"
+- Verifica que el repositorio tenga permisos de escritura
+- Revisa los logs de la aplicación para más detalles
+- Intenta sincronizar manualmente desde la interfaz
 
-## 📈 **Estadísticas Disponibles**
+### El historial no se actualiza
+- Verifica que el backup automático esté funcionando
+- Revisa la configuración de WiFi (el backup solo funciona con WiFi)
+- Verifica que la sincronización automática esté habilitada
 
-### **Desde la App:**
-- 📁 Total de archivos en GitHub
-- 🔄 Última sincronización
-- ✅ Estado de la conexión
+## Logs y Debugging
 
-### **Desde Telegram:**
-- 📊 Estadísticas completas
-- 💾 Tamaño total de archivos
-- 📈 Tasa de éxito/fallo
-- 🌐 Información del repositorio
+### Logs de la Aplicación
+Los logs se guardan en la aplicación y se pueden ver en:
+- **Configuración** > **Logs**
 
-## 🎯 **Próximas Mejoras**
+### Logs de GitHub
+Los errores de GitHub se registran con el tag `GitHubHistorialSync`:
+```
+D/GitHubHistorialSync: Iniciando sincronización con GitHub...
+D/GitHubHistorialSync: Historial sincronizado exitosamente con GitHub
+E/GitHubHistorialSync: Error obteniendo archivo de GitHub: 404 - Not Found
+```
 
-### **Funcionalidades Planificadas:**
-- 🔄 Sincronización bidireccional
-- 📱 Notificaciones de sincronización
-- 🔍 Búsqueda en historial
-- 📊 Gráficos de estadísticas
-- 🔐 Soporte para repositorios privados
+## Actualizaciones Futuras
 
-## 📝 **Notas Técnicas**
+### Funcionalidades Planificadas
+- **Sincronización bidireccional**: Descargar historial desde GitHub
+- **Backup de configuración**: Guardar configuración en GitHub
+- **Múltiples repositorios**: Sincronizar con varios repositorios
+- **Filtros avanzados**: Filtrar archivos por tipo, fecha, tamaño
+- **Exportación**: Exportar historial en diferentes formatos
 
-### **Límites de GitHub:**
-- 📄 Archivo máximo: 100MB
-- 🔄 Rate limit: 5,000 requests/hour
-- 📁 Repositorio: Público recomendado
+### Mejoras de Rendimiento
+- **Sincronización diferencial**: Solo sincronizar cambios
+- **Compresión mejorada**: Reducir tamaño de datos transferidos
+- **Cache inteligente**: Cache más eficiente de estadísticas
 
-### **Optimizaciones:**
-- 🔄 Sincronización incremental
-- 📦 Compresión de datos
-- 🚀 Operaciones asíncronas
-- 💾 Cache local
+## Soporte
+
+Si tienes problemas con la funcionalidad de GitHub:
+
+1. **Revisa esta documentación** para soluciones comunes
+2. **Verifica los logs** de la aplicación para errores específicos
+3. **Prueba la conexión** desde la interfaz de configuración
+4. **Contacta al desarrollador** con los logs de error
 
 ---
 
-## 🎉 **¡Listo para Usar!**
-
-La integración con GitHub está completamente implementada y lista para usar. Solo necesitas:
-
-1. **Crear el repositorio** en GitHub
-2. **Generar el token** de acceso
-3. **Configurar en la app**
-4. **¡Disfrutar de la sincronización automática!**
-
-Los archivos duplicados se evitarán automáticamente entre todos los dispositivos que usen el mismo repositorio de GitHub. 
+**Nota**: Esta funcionalidad requiere una conexión a internet estable y un repositorio público en GitHub. El historial se sincroniza automáticamente después de cada backup exitoso. 

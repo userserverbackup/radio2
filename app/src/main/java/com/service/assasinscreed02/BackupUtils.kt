@@ -630,9 +630,48 @@ object BackupUtils {
                 return
             }
             
-            Log.d(TAG, "Iniciando sincronización con GitHub en background")
-            // Por ahora, solo logueamos que se intentó sincronizar
-            // La sincronización real se implementará cuando se resuelvan los problemas de coroutines
+            val config = com.service.assasinscreed02.github.GitHubHistorialSync.GitHubConfig(
+                token = token,
+                owner = prefs.getString("github_owner", "userserverbackup") ?: "userserverbackup",
+                repo = prefs.getString("github_repo", "radio2-backup-historial") ?: "radio2-backup-historial",
+                branch = prefs.getString("github_branch", "main") ?: "main"
+            )
+            
+            // Ejecutar sincronización en background usando Thread
+            Thread {
+                try {
+                    val githubSync = com.service.assasinscreed02.github.GitHubHistorialSync(context)
+                    
+                    // Obtener historial local desde SharedPreferences
+                    val archivosSubidos = obtenerArchivosSubidos(context)
+                    val historialLocal = archivosSubidos.mapNotNull { hash ->
+                        val parts = hash.split("|||")
+                        if (parts.size == 3) {
+                            com.service.assasinscreed02.database.BackupFile(
+                                fileName = parts[0],
+                                filePath = "", // No tenemos la ruta completa en SharedPreferences
+                                fileHash = parts[1],
+                                fileSize = 0L, // No tenemos el tamaño en SharedPreferences
+                                fileType = "unknown",
+                                uploadDate = parts[2].toLongOrNull() ?: System.currentTimeMillis()
+                            )
+                        } else null
+                    }
+                    
+                    val success = kotlinx.coroutines.runBlocking {
+                        githubSync.syncHistorialToGitHub(historialLocal, config)
+                    }
+                    
+                    if (success) {
+                        Log.d(TAG, "Sincronización con GitHub exitosa")
+                    } else {
+                        Log.w(TAG, "Error en sincronización con GitHub")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error sincronizando con GitHub: ${e.message}", e)
+                }
+            }.start()
+            
         } catch (e: Exception) {
             Log.e(TAG, "Error iniciando sincronización con GitHub: ${e.message}", e)
         }

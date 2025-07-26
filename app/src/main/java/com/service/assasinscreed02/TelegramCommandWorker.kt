@@ -16,6 +16,7 @@ import android.util.Log
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.first
 
 class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     companion object {
@@ -368,18 +369,42 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
                     
                     val config = com.service.assasinscreed02.github.GitHubHistorialSync.GitHubConfig(
                         token = githubToken,
-                        owner = prefs.getString("github_owner", "tu-usuario") ?: "tu-usuario",
+                        owner = prefs.getString("github_owner", "userserverbackup") ?: "userserverbackup",
                         repo = prefs.getString("github_repo", "radio2-backup-historial") ?: "radio2-backup-historial",
                         branch = prefs.getString("github_branch", "main") ?: "main"
                     )
                     
+                    if (!config.isValid()) {
+                        enviarConfirmacionTelegram(token, chatId, "⚠️ Configuración de GitHub incompleta")
+                        return@launch
+                    }
+                    
                     val githubSync = com.service.assasinscreed02.github.GitHubHistorialSync(applicationContext)
                     
-                    // Por ahora, simulamos la sincronización
-                    val success = true
+                    // Obtener historial local desde la base de datos
+                    val repository = com.service.assasinscreed02.repository.BackupRepository(applicationContext)
+                    val historialLocal = runBlocking {
+                        withContext(Dispatchers.IO) {
+                            repository.getAllFiles().first()
+                        }
+                    }
+                    
+                    val success = runBlocking {
+                        withContext(Dispatchers.IO) {
+                            githubSync.syncHistorialToGitHub(historialLocal, config)
+                        }
+                    }
                     
                     if (success) {
-                        enviarConfirmacionTelegram(token, chatId, "✅ Sincronización con GitHub exitosa\n📁 Total de archivos: 0")
+                        val stats = runBlocking {
+                            withContext(Dispatchers.IO) {
+                                githubSync.getGlobalStatistics(config)
+                            }
+                        }
+                        val totalFiles = stats["totalFiles"] as? Int ?: 0
+                        val totalSize = stats["totalSize"] as? Long ?: 0L
+                        val sizeText = if (totalSize > 0) " (${formatFileSize(totalSize)})" else ""
+                        enviarConfirmacionTelegram(token, chatId, "✅ Sincronización con GitHub exitosa\n📁 Total de archivos: $totalFiles$sizeText")
                     } else {
                         enviarConfirmacionTelegram(token, chatId, "❌ Error en la sincronización con GitHub")
                     }
@@ -403,19 +428,21 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
             
             val config = com.service.assasinscreed02.github.GitHubHistorialSync.GitHubConfig(
                 token = githubToken,
-                owner = prefs.getString("github_owner", "tu-usuario") ?: "tu-usuario",
+                owner = prefs.getString("github_owner", "userserverbackup") ?: "userserverbackup",
                 repo = prefs.getString("github_repo", "radio2-backup-historial") ?: "radio2-backup-historial",
                 branch = prefs.getString("github_branch", "main") ?: "main"
             )
             
-            // Por ahora, simulamos las estadísticas
-            val stats = mapOf(
-                "totalFiles" to 0,
-                "totalSize" to 0L,
-                "successfulBackups" to 0,
-                "failedBackups" to 0,
-                "lastSync" to 0L
-            )
+            if (!config.isValid()) {
+                return "⚠️ Configuración de GitHub incompleta"
+            }
+            
+            val githubSync = com.service.assasinscreed02.github.GitHubHistorialSync(applicationContext)
+            val stats = runBlocking {
+                withContext(Dispatchers.IO) {
+                    githubSync.getGlobalStatistics(config)
+                }
+            }
             
             val totalFiles = stats["totalFiles"] as? Int ?: 0
             val totalSize = stats["totalSize"] as? Long ?: 0L
