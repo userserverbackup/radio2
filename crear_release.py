@@ -14,7 +14,7 @@ from datetime import datetime
 
 # Configuración - CAMBIAR ESTOS VALORES
 GITHUB_TOKEN = "tu_token_aqui"  # Token de GitHub con permisos de repo
-REPO_OWNER = "gringo"  # Tu usuario de GitHub
+REPO_OWNER = "userserverbackup"  # Tu usuario de GitHub
 REPO_NAME = "radio2"  # Tu repositorio
 GITHUB_API_BASE = "https://api.github.com"
 

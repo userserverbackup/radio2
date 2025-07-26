@@ -29,10 +29,10 @@ class GitHubUpdateRepository : UpdateRepository {
         private const val PREFS_NAME = "UpdatePrefs"
         private const val AUTO_UPDATE_KEY = "auto_update_enabled"
         
-        // Configuración de GitHub - CAMBIAR ESTOS VALORES
+        // Configuración de GitHub - CONFIGURADO
         private const val GITHUB_API_BASE = "https://api.github.com"
-        private const val REPO_OWNER = "gringo" // TODO: Cambiar por tu usuario de GitHub
-        private const val REPO_NAME = "radio2" // TODO: Cambiar por tu repositorio
+        private const val REPO_OWNER = "userserverbackup" // Usuario de GitHub configurado
+        private const val REPO_NAME = "radio2" // Repositorio configurado
         private const val RELEASES_URL = "$GITHUB_API_BASE/repos/$REPO_OWNER/$REPO_NAME/releases/latest"
     }
     
