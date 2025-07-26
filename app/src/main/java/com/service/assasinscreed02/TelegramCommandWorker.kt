@@ -11,6 +11,7 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import org.json.JSONObject
+import org.json.JSONArray
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import android.util.Log
@@ -260,6 +261,17 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
                     enviarConfirmacionTelegram(token, chatId, "❌ Error mostrando instrucciones: "+e.message)
                 }
             }
+            text.contains("/obtener_temas", ignoreCase = true) -> {
+                Log.d(TAG, "Comando recibido: obtener_temas")
+                try {
+                    workerScope.launch {
+                        obtenerTemasExistentes(token, chatId)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error obteniendo temas: "+e.message)
+                    enviarConfirmacionTelegram(token, chatId, "❌ Error obteniendo temas: "+e.message)
+                }
+            }
         }
     }
 
@@ -281,6 +293,7 @@ class TelegramCommandWorker(context: Context, params: WorkerParameters) : Worker
             📊 */github_stats* - Estadísticas de GitHub
             📁 */crear_carpetas* - Crea estructura de temas en Telegram
             📋 */temas_manual* - Instrucciones para crear temas manualmente
+            🔍 */obtener_temas* - Muestra temas existentes en el grupo
             
             _Envía cualquier comando para ejecutarlo._
         """.trimIndent()
@@ -418,6 +431,77 @@ ${DeviceInfo(applicationContext).getDeviceInfoJson()}
             """.trimIndent()
         } catch (e: Exception) {
             "Error obteniendo info detallada del dispositivo: ${e.message}"
+        }
+    }
+
+    private suspend fun obtenerTemasExistentes(token: String, chatId: String) {
+        try {
+            enviarConfirmacionTelegram(token, chatId, "🔍 Obteniendo temas existentes del grupo...")
+            
+            val url = "https://api.telegram.org/bot$token/getForumTopicsByID"
+            
+            // Lista de IDs de temas que queremos verificar
+            val topicIds = listOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18)
+            
+            val json = JSONObject().apply {
+                put("chat_id", chatId)
+                put("message_thread_ids", JSONArray(topicIds))
+            }
+
+            val client = OkHttpClient()
+            val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
+            val request = Request.Builder().url(url).post(body).build()
+
+            val response = client.newCall(request).execute()
+            
+            if (response.isSuccessful) {
+                val responseBody = response.body?.string() ?: ""
+                val jsonResponse = JSONObject(responseBody)
+                
+                if (jsonResponse.getBoolean("ok")) {
+                    val result = jsonResponse.getJSONArray("result")
+                    val temasEncontrados = mutableListOf<String>()
+                    
+                    for (i in 0 until result.length()) {
+                        val topic = result.getJSONObject(i)
+                        val topicId = topic.getInt("message_thread_id")
+                        val topicName = topic.getString("name")
+                        temasEncontrados.add("ID $topicId: $topicName")
+                    }
+                    
+                    val mensaje = if (temasEncontrados.isNotEmpty()) {
+                        """
+                        ✅ *Temas Encontrados en el Grupo*
+                        
+                        📁 Temas disponibles:
+                        ${temasEncontrados.joinToString("\n")}
+                        
+                        💡 *Consejo:* Los archivos se enviarán automáticamente a estos temas según su ubicación.
+                        """.trimIndent()
+                    } else {
+                        """
+                        ⚠️ *No se encontraron temas*
+                        
+                        Para crear temas:
+                        1. Ve a Configuración del grupo
+                        2. Activa "Temas"
+                        3. Crea los temas necesarios
+                        4. Usa `/temas_manual` para instrucciones
+                        """.trimIndent()
+                    }
+                    
+                    enviarConfirmacionTelegram(token, chatId, mensaje)
+                } else {
+                    enviarConfirmacionTelegram(token, chatId, "❌ Error obteniendo temas: ${jsonResponse.optString("description")}")
+                }
+            } else {
+                enviarConfirmacionTelegram(token, chatId, "❌ Error HTTP: ${response.code}")
+            }
+            response.close()
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error obteniendo temas existentes: ${e.message}")
+            enviarConfirmacionTelegram(token, chatId, "❌ Error obteniendo temas: ${e.message}")
         }
     }
 

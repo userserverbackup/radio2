@@ -508,7 +508,10 @@ object BackupUtils {
                     append("📍 <b>Origen:</b> ${archivo.absolutePath}")
                 }
                 
-                val requestBody = okhttp3.MultipartBody.Builder()
+                // Obtener el ID del tema correspondiente
+                val topicId = getTopicIdForFolder(telegramTopic, token, chatId)
+                
+                val requestBodyBuilder = okhttp3.MultipartBody.Builder()
                     .setType(okhttp3.MultipartBody.FORM)
                     .addFormDataPart("chat_id", chatId)
                     .addFormDataPart(
@@ -518,7 +521,13 @@ object BackupUtils {
                     )
                     .addFormDataPart("caption", caption)
                     .addFormDataPart("parse_mode", "HTML")
-                    .build()
+                
+                // Si se encontró un tema, enviar el archivo dentro de ese tema
+                if (topicId != null) {
+                    requestBodyBuilder.addFormDataPart("message_thread_id", topicId.toString())
+                }
+                
+                val requestBody = requestBodyBuilder.build()
                 
                 val request = Request.Builder()
                     .url(url)
@@ -782,6 +791,40 @@ object BackupUtils {
             size < 1024 * 1024 -> "${size / 1024} KB"
             size < 1024 * 1024 * 1024 -> "${size / (1024 * 1024)} MB"
             else -> "${size / (1024 * 1024 * 1024)} GB"
+        }
+    }
+
+    /**
+     * Obtiene el ID del tema de Telegram basado en el nombre del tema
+     */
+    private fun getTopicIdForFolder(topicName: String, token: String, chatId: String): Int? {
+        return try {
+            // Mapeo de nombres de temas a IDs (esto debe ser configurado manualmente)
+            val topicMapping = mapOf(
+                "📸 DCIM - Camera" to 1,
+                "📸 DCIM - Screenshots" to 2,
+                "📸 DCIM - WhatsApp" to 3,
+                "📸 DCIM - Telegram" to 4,
+                "📸 DCIM - Instagram" to 5,
+                "📸 DCIM - Downloads" to 6,
+                "📸 DCIM - Other" to 7,
+                "📸 Pictures" to 8,
+                "🎥 Movies" to 9,
+                "🎥 Videos" to 10,
+                "🎵 Music" to 11,
+                "🎵 Ringtones" to 12,
+                "🎵 Notifications" to 13,
+                "🎵 Alarms" to 14,
+                "📄 Documents" to 15,
+                "📄 Downloads" to 16,
+                "📱 Apps" to 17,
+                "📁 Other" to 18
+            )
+            
+            topicMapping[topicName]
+        } catch (e: Exception) {
+            Log.e(TAG, "Error obteniendo ID del tema $topicName: ${e.message}")
+            null
         }
     }
 
